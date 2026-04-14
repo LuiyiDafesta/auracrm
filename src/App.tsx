@@ -1,12 +1,37 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AppLayout } from "@/components/AppLayout";
+import Auth from "./pages/Auth";
+import Dashboard from "./pages/Dashboard";
+import Contacts from "./pages/Contacts";
+import Companies from "./pages/Companies";
+import Opportunities from "./pages/Opportunities";
+import Tasks from "./pages/Tasks";
+import CalendarPage from "./pages/CalendarPage";
+import Campaigns from "./pages/Campaigns";
+import Reports from "./pages/Reports";
+import SettingsPage from "./pages/SettingsPage";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
+  if (!user) return <Navigate to="/auth" replace />;
+  return <AppLayout>{children}</AppLayout>;
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -14,11 +39,21 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/contactos" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+            <Route path="/empresas" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
+            <Route path="/oportunidades" element={<ProtectedRoute><Opportunities /></ProtectedRoute>} />
+            <Route path="/tareas" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+            <Route path="/calendario" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+            <Route path="/campanas" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
+            <Route path="/reportes" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/configuracion" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
