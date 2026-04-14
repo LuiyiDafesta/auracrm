@@ -22,6 +22,8 @@ import ContactDetail from "./pages/ContactDetail";
 import NotFound from "./pages/NotFound";
 import EmailTemplates from "./pages/EmailTemplates";
 import EmailBuilderPage from "./pages/EmailBuilderPage";
+import AutomationsPage from "./pages/AutomationsPage";
+import AutomationEditorPage from "./pages/AutomationEditorPage";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +65,8 @@ const App = () => (
             <Route path="/contactos/:id" element={<ProtectedRoute><ContactDetail /></ProtectedRoute>} />
             <Route path="/email-builder" element={<ProtectedRoute><EmailTemplates /></ProtectedRoute>} />
             <Route path="/email-builder/:id" element={<ProtectedRoute><EmailBuilderPage /></ProtectedRoute>} />
+            <Route path="/automatizaciones" element={<ProtectedRoute><AutomationsPage /></ProtectedRoute>} />
+            <Route path="/automatizaciones/:id" element={<ProtectedRoute><AutomationEditorPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

@@ -59,6 +59,152 @@ export type Database = {
           },
         ]
       }
+      automation_run_logs: {
+        Row: {
+          action: string
+          created_at: string
+          error_message: string | null
+          id: string
+          result: Json | null
+          run_id: string
+          step_id: string
+          step_type: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          result?: Json | null
+          run_id: string
+          step_id: string
+          step_type: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          result?: Json | null
+          run_id?: string
+          step_id?: string
+          step_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_run_logs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "automation_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_runs: {
+        Row: {
+          automation_id: string
+          completed_at: string | null
+          contact_id: string
+          context: Json
+          created_at: string
+          current_step_id: string | null
+          id: string
+          started_at: string
+          status: Database["public"]["Enums"]["automation_run_status"]
+          updated_at: string
+          user_id: string
+          wait_until: string | null
+        }
+        Insert: {
+          automation_id: string
+          completed_at?: string | null
+          contact_id: string
+          context?: Json
+          created_at?: string
+          current_step_id?: string | null
+          id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["automation_run_status"]
+          updated_at?: string
+          user_id: string
+          wait_until?: string | null
+        }
+        Update: {
+          automation_id?: string
+          completed_at?: string | null
+          contact_id?: string
+          context?: Json
+          created_at?: string
+          current_step_id?: string | null
+          id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["automation_run_status"]
+          updated_at?: string
+          user_id?: string
+          wait_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_runs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          last_run_at: string | null
+          name: string
+          run_count: number
+          status: Database["public"]["Enums"]["automation_status"]
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+          user_id: string
+          workflow: Json
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_run_at?: string | null
+          name: string
+          run_count?: number
+          status?: Database["public"]["Enums"]["automation_status"]
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string
+          user_id: string
+          workflow?: Json
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          run_count?: number
+          status?: Database["public"]["Enums"]["automation_status"]
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+          user_id?: string
+          workflow?: Json
+        }
+        Relationships: []
+      }
       campaign_sends: {
         Row: {
           ab_parent_id: string | null
@@ -890,6 +1036,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      automation_run_status:
+        | "running"
+        | "waiting"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      automation_status: "draft" | "active" | "paused"
       campaign_send_status:
         | "pending"
         | "processing"
@@ -1039,6 +1192,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      automation_run_status: [
+        "running",
+        "waiting",
+        "completed",
+        "failed",
+        "cancelled",
+      ],
+      automation_status: ["draft", "active", "paused"],
       campaign_send_status: [
         "pending",
         "processing",
