@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { TablePagination } from '@/components/TablePagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -18,6 +19,8 @@ export default function Companies() {
   const { toast } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Company | null>(null);
   const [form, setForm] = useState({ name: '', industry: '', website: '', phone: '', email: '', address: '', city: '', country: '', size: '', notes: '' });
@@ -106,6 +109,9 @@ export default function Companies() {
           </div>
         </CardHeader>
         <CardContent>
+          {(() => {
+            const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+            return (<>
           <Table>
             <TableHeader>
               <TableRow>
@@ -118,9 +124,9 @@ export default function Companies() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {paginated.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No hay empresas</TableCell></TableRow>
-              ) : filtered.map(c => (
+              ) : paginated.map(c => (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.industry || '—'}</TableCell>
@@ -137,6 +143,9 @@ export default function Companies() {
               ))}
             </TableBody>
           </Table>
+          <TablePagination total={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(1); }} />
+          </>);
+          })()}
         </CardContent>
       </Card>
     </div>
