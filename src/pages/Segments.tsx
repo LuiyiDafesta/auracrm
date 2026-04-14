@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Users, Filter, UserPlus, X, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Filter, UserPlus, X, Search, Eye } from 'lucide-react';
 
 interface SegmentRule {
   field: string;
@@ -116,6 +116,12 @@ export default function Segments() {
   const [manualSegment, setManualSegment] = useState<any>(null);
   const [manualContactIds, setManualContactIds] = useState<string[]>([]);
   const [manualSearch, setManualSearch] = useState('');
+  // View contacts dialog
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewSegment, setViewSegment] = useState<any>(null);
+  const [viewContacts, setViewContacts] = useState<any[]>([]);
+  const [viewSearch, setViewSearch] = useState('');
+  const [viewLoading, setViewLoading] = useState(false);
 
   const allFields = [
     ...BASE_FIELDS.map(f => ({ value: f.value, label: f.label })),
@@ -263,6 +269,48 @@ export default function Segments() {
     `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(manualSearch.toLowerCase())
   );
 
+  const openViewContacts = async (seg: any) => {
+    setViewSegment(seg);
+    setViewSearch('');
+    setViewLoading(true);
+    setViewOpen(true);
+
+    // Fetch contacts matching rules
+    const segRules = (seg.rules || []) as SegmentRule[];
+    let query = supabase.from('contacts').select('id, first_name, last_name, email, lead_score, status') as any;
+    for (const rule of segRules) {
+      if (rule.field === 'tag' || rule.field.startsWith('cf_')) continue;
+      query = applyFilter(query, rule);
+    }
+    const { data: ruleContacts } = await query;
+
+    // Fetch manually added contacts
+    const { data: manualRows } = await supabase.from('segment_contacts').select('contact_id').eq('segment_id', seg.id);
+    const manualIds = (manualRows || []).map((r: any) => r.contact_id);
+    let manualContacts: any[] = [];
+    if (manualIds.length > 0) {
+      const { data } = await supabase.from('contacts').select('id, first_name, last_name, email, lead_score, status').in('id', manualIds);
+      manualContacts = data || [];
+    }
+
+    // Merge and deduplicate
+    const allMap = new Map<string, any>();
+    (ruleContacts || []).forEach((c: any) => allMap.set(c.id, { ...c, source: 'regla' }));
+    manualContacts.forEach(c => {
+      if (allMap.has(c.id)) {
+        allMap.set(c.id, { ...allMap.get(c.id), source: 'ambos' });
+      } else {
+        allMap.set(c.id, { ...c, source: 'manual' });
+      }
+    });
+    setViewContacts(Array.from(allMap.values()));
+    setViewLoading(false);
+  };
+
+  const viewFilteredContacts = viewContacts.filter(c =>
+    `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(viewSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -355,6 +403,7 @@ export default function Segments() {
                   {s.description && <p className="text-xs text-muted-foreground mt-1">{s.description}</p>}
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openViewContacts(s)} title="Ver contactos"><Eye className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openManualContacts(s)} title="Agregar contactos manualmente"><UserPlus className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Pencil className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(s.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
@@ -417,6 +466,53 @@ export default function Segments() {
                 )}
               </div>
             </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View segment contacts dialog */}
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Contactos en "{viewSegment?.name}"
+              <Badge variant="secondary">{viewContacts.length}</Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-9" placeholder="Buscar en este segmento..." value={viewSearch} onChange={e => setViewSearch(e.target.value)} />
+            </div>
+            {viewLoading ? (
+              <div className="flex justify-center py-8"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>
+            ) : (
+              <ScrollArea className="h-[400px] border rounded-md">
+                <div className="divide-y">
+                  {viewFilteredContacts.map(c => (
+                    <div key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{c.first_name} {c.last_name}</p>
+                        {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${(c.lead_score || 0) >= 80 ? 'bg-green-500' : (c.lead_score || 0) >= 50 ? 'bg-yellow-500' : (c.lead_score || 0) >= 20 ? 'bg-orange-500' : 'bg-muted-foreground/50'}`} style={{ width: `${c.lead_score || 0}%` }} />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-6 text-right">{c.lead_score || 0}</span>
+                      </div>
+                      <Badge variant={c.source === 'manual' ? 'outline' : c.source === 'ambos' ? 'default' : 'secondary'} className="text-xs shrink-0">
+                        {c.source === 'manual' ? 'Manual' : c.source === 'ambos' ? 'Regla + Manual' : 'Regla'}
+                      </Badge>
+                    </div>
+                  ))}
+                  {viewFilteredContacts.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground py-8">No hay contactos en este segmento</p>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
           </div>
         </DialogContent>
       </Dialog>
