@@ -103,6 +103,14 @@ export default function Campaigns() {
                 <div className="space-y-2"><label className="text-sm font-medium">Fecha fin</label><Input type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} /></div>
               </div>
               <div className="space-y-2"><label className="text-sm font-medium">Notas</label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
+              <div className="border-t pt-4 mt-2">
+                <p className="text-sm font-medium mb-1">Remitente personalizado <span className="text-muted-foreground font-normal">(opcional)</span></p>
+                <p className="text-xs text-muted-foreground mb-3">Si no se configura, se usará el remitente del SMTP global.</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><label className="text-sm font-medium">Email remitente</label><Input placeholder="ventas@otrodominio.com" value={form.from_email} onChange={e => setForm({ ...form, from_email: e.target.value })} /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium">Nombre remitente</label><Input placeholder="Otra Empresa" value={form.from_name} onChange={e => setForm({ ...form, from_name: e.target.value })} /></div>
+                </div>
+              </div>
               <Button onClick={handleSave} className="w-full">{editing ? 'Guardar cambios' : 'Crear campaña'}</Button>
             </div>
           </DialogContent>
