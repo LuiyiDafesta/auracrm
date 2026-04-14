@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Building2, TrendingUp, CheckSquare,
-  Calendar, Megaphone, BarChart3, Settings, LogOut, Zap, Tag, Filter, SlidersHorizontal, Mail, Workflow, Code2, MessageSquare, Inbox,
+  Calendar, Megaphone, BarChart3, Settings, LogOut, Zap, Tag, Filter, SlidersHorizontal, Mail, Workflow, Code2, MessageSquare, Inbox, FolderOpen,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -13,6 +13,7 @@ import {
 
 const items = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+  { title: 'Proyectos', url: '/proyectos', icon: FolderOpen },
   { title: 'Contactos', url: '/contactos', icon: Users },
   { title: 'Empresas', url: '/empresas', icon: Building2 },
   { title: 'Etiquetas', url: '/etiquetas', icon: Tag },

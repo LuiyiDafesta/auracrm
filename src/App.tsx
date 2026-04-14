@@ -27,6 +27,8 @@ import AutomationEditorPage from "./pages/AutomationEditorPage";
 import ApiDocsPage from "./pages/ApiDocsPage";
 import ChannelsPage from "./pages/ChannelsPage";
 import InboxPage from "./pages/InboxPage";
+import ProjectsPage from "./pages/ProjectsPage";
+import ProjectDetailPage from "./pages/ProjectDetailPage";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -72,6 +74,8 @@ const App = () => (
             <Route path="/api" element={<ProtectedRoute><ApiDocsPage /></ProtectedRoute>} />
             <Route path="/canales" element={<ProtectedRoute><ChannelsPage /></ProtectedRoute>} />
             <Route path="/inbox" element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
+            <Route path="/proyectos" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
+            <Route path="/proyectos/:id" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
