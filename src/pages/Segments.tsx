@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, Users, Filter, UserPlus, X, Search, Eye } from 'lucide-react';
+import { CopyId } from '@/components/CopyId';
 
 interface SegmentRule {
   field: string;
@@ -469,6 +470,9 @@ export default function Segments() {
               <div className="flex items-start justify-between">
                 <div>
                   <CardTitle className="text-lg">{s.name}</CardTitle>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <CopyId id={s.id} />
+                  </div>
                   {s.description && <p className="text-xs text-muted-foreground mt-1">{s.description}</p>}
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

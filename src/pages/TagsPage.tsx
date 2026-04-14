@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Trash2, Tag } from 'lucide-react';
+import { CopyId } from '@/components/CopyId';
 
 const TAG_COLORS = [
   '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
@@ -93,6 +94,7 @@ export default function TagsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-24">ID</TableHead>
                 <TableHead>Etiqueta</TableHead>
                 <TableHead>Contactos</TableHead>
                 <TableHead className="w-20"></TableHead>
@@ -100,9 +102,10 @@ export default function TagsPage() {
             </TableHeader>
             <TableBody>
               {tags.length === 0 ? (
-                <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">No hay etiquetas</TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No hay etiquetas</TableCell></TableRow>
               ) : tags.map(t => (
                 <TableRow key={t.id}>
+                  <TableCell><CopyId id={t.id} /></TableCell>
                   <TableCell>
                     {editingId === t.id ? (
                       <div className="flex items-center gap-2">
