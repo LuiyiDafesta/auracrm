@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Pencil, Trash2, Star } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { TagManager } from '@/components/TagManager';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -167,10 +167,11 @@ export default function Contacts() {
                   <TableCell>{c.email || '—'}</TableCell>
                   <TableCell>{getCompanyName(c.company_id)}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      {[1,2,3,4,5].map(s => (
-                        <Star key={s} className={`h-3 w-3 ${((c as any).lead_score / 20) >= s ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/20'}`} />
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${(c as any).lead_score >= 80 ? 'bg-green-500' : (c as any).lead_score >= 50 ? 'bg-yellow-500' : (c as any).lead_score >= 20 ? 'bg-orange-500' : 'bg-muted-foreground/50'}`} style={{ width: `${(c as any).lead_score || 0}%` }} />
+                      </div>
+                      <span className="text-xs text-muted-foreground">{(c as any).lead_score || 0}</span>
                     </div>
                   </TableCell>
                   <TableCell><TagManager contactId={c.id} /></TableCell>
