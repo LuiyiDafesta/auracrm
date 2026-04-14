@@ -897,7 +897,7 @@ export type Database = {
           name: string
           notes: string | null
           probability: number | null
-          stage: Database["public"]["Enums"]["opportunity_stage"]
+          stage: string
           updated_at: string
           user_id: string
           value: number | null
@@ -911,7 +911,7 @@ export type Database = {
           name: string
           notes?: string | null
           probability?: number | null
-          stage?: Database["public"]["Enums"]["opportunity_stage"]
+          stage?: string
           updated_at?: string
           user_id: string
           value?: number | null
@@ -925,7 +925,7 @@ export type Database = {
           name?: string
           notes?: string | null
           probability?: number | null
-          stage?: Database["public"]["Enums"]["opportunity_stage"]
+          stage?: string
           updated_at?: string
           user_id?: string
           value?: number | null
@@ -946,6 +946,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      opportunity_stages: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
