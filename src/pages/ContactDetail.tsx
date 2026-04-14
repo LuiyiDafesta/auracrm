@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { TagManager } from '@/components/TagManager';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, Camera, Star, Mail, Phone, Briefcase, Building2,
+  ArrowLeft, Camera, Mail, Phone, Briefcase, Building2,
   Calendar, Globe, ChevronDown, ChevronUp, Save, Pencil, EyeOff,
 } from 'lucide-react';
 
@@ -242,7 +242,7 @@ export default function ContactDetail() {
 
               {/* Lead score & status */}
               <div className="flex items-center gap-4 flex-wrap">
-                {renderScoreStars()}
+                {renderScore()}
                 {editMode ? (
                   <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
                     <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
