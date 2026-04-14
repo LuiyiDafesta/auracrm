@@ -17,6 +17,13 @@ const ALL_PERMISSIONS = [
   { value: 'contacts:write', label: 'Crear/editar contactos' },
   { value: 'contacts:delete', label: 'Eliminar contactos' },
   { value: 'contacts:all', label: 'Acceso total a contactos' },
+  { value: 'tags:read', label: 'Leer etiquetas' },
+  { value: 'tags:write', label: 'Crear/editar/eliminar etiquetas' },
+  { value: 'segments:read', label: 'Leer segmentos' },
+  { value: 'segments:write', label: 'Crear/editar/eliminar segmentos' },
+  { value: 'custom_fields:read', label: 'Leer campos personalizados' },
+  { value: 'custom_fields:write', label: 'Crear/editar/eliminar campos personalizados' },
+  { value: '*', label: 'Acceso total (todos los recursos)' },
 ];
 
 async function hashKey(key: string): Promise<string> {
