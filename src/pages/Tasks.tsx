@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { TablePagination } from '@/components/TablePagination';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,8 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [form, setForm] = useState({ title: '', description: '', priority: 'media' as Task['priority'], status: 'pendiente' as Task['status'], due_date: '', contact_id: '' });
@@ -178,9 +181,11 @@ export default function Tasks() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {(() => {
+                const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+                return paginated.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No hay tareas</TableCell></TableRow>
-              ) : filtered.map(t => {
+              ) : paginated.map(t => {
                 const contactName = getContactName(t.contact_id);
                 return (
                   <TableRow key={t.id} className={t.status === 'completada' ? 'opacity-50' : ''}>
@@ -213,9 +218,10 @@ export default function Tasks() {
                     </TableCell>
                   </TableRow>
                 );
-              })}
+              })})()}
             </TableBody>
           </Table>
+          <TablePagination total={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(1); }} />
         </CardContent>
       </Card>
     </div>
