@@ -43,7 +43,7 @@ export default function Campaigns() {
 
   const handleSave = async () => {
     if (!user) return;
-    const data = { ...form, user_id: user.id, budget: form.budget ? parseFloat(form.budget) : null, start_date: form.start_date || null, end_date: form.end_date || null };
+    const data = { ...form, user_id: user.id, budget: form.budget ? parseFloat(form.budget) : null, start_date: form.start_date || null, end_date: form.end_date || null, from_email: form.from_email || null, from_name: form.from_name || null };
     let error;
     if (editing) {
       ({ error } = await supabase.from('campaigns').update(data).eq('id', editing.id));
