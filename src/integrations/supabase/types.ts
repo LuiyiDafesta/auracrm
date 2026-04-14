@@ -328,6 +328,50 @@ export type Database = {
         }
         Relationships: []
       }
+      email_templates: {
+        Row: {
+          blocks: Json
+          campaign_id: string | null
+          created_at: string
+          html_content: string | null
+          id: string
+          name: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocks?: Json
+          campaign_id?: string | null
+          created_at?: string
+          html_content?: string | null
+          id?: string
+          name: string
+          subject?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocks?: Json
+          campaign_id?: string | null
+          created_at?: string
+          html_content?: string | null
+          id?: string
+          name?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opportunities: {
         Row: {
           company_id: string | null
