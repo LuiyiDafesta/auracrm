@@ -3,8 +3,9 @@ name: Database Schema
 description: All database tables, columns, and relationships for AuraCRM
 type: feature
 ---
-Tables: profiles, companies, contacts (+ avatar_url, lead_score), opportunities, tasks, campaigns, activities, tags, contact_tags, segments, custom_fields, contact_custom_values
-- custom_fields: user-defined fields with types (text, number, date, select, checkbox, etc.), is_visible toggle
-- contact_custom_values: stores values per contact+field combo
+Tables: profiles, companies, contacts (+ avatar_url, lead_score), opportunities (stage is TEXT, not enum), tasks, campaigns, activities, tags, contact_tags, segments, segment_contacts, custom_fields, contact_custom_values, channels, channel_messages, smtp_config, email_templates, email_queue, email_tracking, campaign_sends, automations, automation_runs, automation_run_logs, api_keys, opportunity_stages, projects, project_contacts, project_campaigns, project_opportunities, project_tasks
+- opportunity_stages: user-configurable pipeline stages with name, color, sort_order
+- projects: name, description, client_name, status, color — groups entities by client/project
+- project_* junction tables: many-to-many linking projects to contacts, campaigns, opportunities, tasks
 - Storage bucket: avatars (public read)
 All tables have RLS by user_id.
