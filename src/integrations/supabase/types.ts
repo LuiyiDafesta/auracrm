@@ -409,6 +409,108 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_messages: {
+        Row: {
+          channel_id: string
+          contact_id: string | null
+          content: string | null
+          created_at: string
+          direction: Database["public"]["Enums"]["message_direction"]
+          external_id: string | null
+          id: string
+          is_read: boolean
+          media_type: string | null
+          media_url: string | null
+          metadata: Json | null
+          sender_identifier: string | null
+          sender_name: string | null
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          contact_id?: string | null
+          content?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["message_direction"]
+          external_id?: string | null
+          id?: string
+          is_read?: boolean
+          media_type?: string | null
+          media_url?: string | null
+          metadata?: Json | null
+          sender_identifier?: string | null
+          sender_name?: string | null
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          contact_id?: string | null
+          content?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["message_direction"]
+          external_id?: string | null
+          id?: string
+          is_read?: boolean
+          media_type?: string | null
+          media_url?: string | null
+          metadata?: Json | null
+          sender_identifier?: string | null
+          sender_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_messages_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channels: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["channel_status"]
+          type: Database["public"]["Enums"]["channel_type"]
+          updated_at: string
+          user_id: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name: string
+          status?: Database["public"]["Enums"]["channel_status"]
+          type: Database["public"]["Enums"]["channel_type"]
+          updated_at?: string
+          user_id: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["channel_status"]
+          type?: Database["public"]["Enums"]["channel_type"]
+          updated_at?: string
+          user_id?: string
+          webhook_secret?: string | null
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: string | null
@@ -1097,7 +1199,16 @@ export type Database = {
         | "pausada"
         | "completada"
         | "cancelada"
+      channel_status: "active" | "inactive" | "error"
+      channel_type:
+        | "whatsapp_evolution"
+        | "telegram"
+        | "email"
+        | "facebook"
+        | "instagram"
+        | "webchat"
       email_queue_status: "pending" | "sending" | "sent" | "failed"
+      message_direction: "inbound" | "outbound"
       opportunity_stage:
         | "prospecto"
         | "calificado"
@@ -1256,7 +1367,17 @@ export const Constants = {
         "completada",
         "cancelada",
       ],
+      channel_status: ["active", "inactive", "error"],
+      channel_type: [
+        "whatsapp_evolution",
+        "telegram",
+        "email",
+        "facebook",
+        "instagram",
+        "webchat",
+      ],
       email_queue_status: ["pending", "sending", "sent", "failed"],
+      message_direction: ["inbound", "outbound"],
       opportunity_stage: [
         "prospecto",
         "calificado",

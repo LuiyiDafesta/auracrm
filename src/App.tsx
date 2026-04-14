@@ -25,6 +25,8 @@ import EmailBuilderPage from "./pages/EmailBuilderPage";
 import AutomationsPage from "./pages/AutomationsPage";
 import AutomationEditorPage from "./pages/AutomationEditorPage";
 import ApiDocsPage from "./pages/ApiDocsPage";
+import ChannelsPage from "./pages/ChannelsPage";
+import InboxPage from "./pages/InboxPage";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -68,6 +70,8 @@ const App = () => (
             <Route path="/automatizaciones" element={<ProtectedRoute><AutomationsPage /></ProtectedRoute>} />
             <Route path="/automatizaciones/:id" element={<ProtectedRoute><AutomationEditorPage /></ProtectedRoute>} />
             <Route path="/api" element={<ProtectedRoute><ApiDocsPage /></ProtectedRoute>} />
+            <Route path="/canales" element={<ProtectedRoute><ChannelsPage /></ProtectedRoute>} />
+            <Route path="/inbox" element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
