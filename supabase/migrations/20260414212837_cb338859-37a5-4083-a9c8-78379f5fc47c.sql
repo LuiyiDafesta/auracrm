@@ -1,0 +1,1 @@
+ALTER TABLE public.contacts ALTER COLUMN email SET NOT NULL;
