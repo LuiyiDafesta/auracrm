@@ -59,6 +59,48 @@ export type Database = {
           },
         ]
       }
+      api_keys: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          key_hash: string
+          key_preview: string
+          last_used_at: string | null
+          name: string
+          permissions: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash: string
+          key_preview?: string
+          last_used_at?: string | null
+          name: string
+          permissions?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash?: string
+          key_preview?: string
+          last_used_at?: string | null
+          name?: string
+          permissions?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       automation_run_logs: {
         Row: {
           action: string
