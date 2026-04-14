@@ -42,6 +42,10 @@ export default function Contacts() {
 
   const handleSave = async () => {
     if (!user) return;
+    if (!form.first_name.trim() || !form.email.trim()) {
+      toast({ title: 'Error', description: 'Nombre y email son obligatorios', variant: 'destructive' });
+      return;
+    }
     const data = { ...form, user_id: user.id, company_id: form.company_id || null };
     let error;
     if (editing) {
@@ -102,9 +106,9 @@ export default function Contacts() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Email</label>
-                  <Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+              <div className="space-y-2">
+                  <label className="text-sm font-medium">Email *</label>
+                  <Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Teléfono</label>
