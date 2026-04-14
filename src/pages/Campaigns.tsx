@@ -31,7 +31,7 @@ export default function Campaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
-  const [form, setForm] = useState({ name: '', type: '', status: 'borrador' as Campaign['status'], start_date: '', end_date: '', budget: '', notes: '' });
+  const [form, setForm] = useState({ name: '', type: '', status: 'borrador' as Campaign['status'], start_date: '', end_date: '', budget: '', notes: '', from_email: '', from_name: '' });
 
   const fetchData = async () => {
     if (!user) return;
@@ -43,7 +43,7 @@ export default function Campaigns() {
 
   const handleSave = async () => {
     if (!user) return;
-    const data = { ...form, user_id: user.id, budget: form.budget ? parseFloat(form.budget) : null, start_date: form.start_date || null, end_date: form.end_date || null };
+    const data = { ...form, user_id: user.id, budget: form.budget ? parseFloat(form.budget) : null, start_date: form.start_date || null, end_date: form.end_date || null, from_email: form.from_email || null, from_name: form.from_name || null };
     let error;
     if (editing) {
       ({ error } = await supabase.from('campaigns').update(data).eq('id', editing.id));
@@ -53,7 +53,7 @@ export default function Campaigns() {
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: editing ? 'Campaña actualizada' : 'Campaña creada' });
     setOpen(false); setEditing(null);
-    setForm({ name: '', type: '', status: 'borrador', start_date: '', end_date: '', budget: '', notes: '' });
+    setForm({ name: '', type: '', status: 'borrador', start_date: '', end_date: '', budget: '', notes: '', from_email: '', from_name: '' });
     fetchData();
   };
 
@@ -65,7 +65,7 @@ export default function Campaigns() {
 
   const openEdit = (c: Campaign) => {
     setEditing(c);
-    setForm({ name: c.name, type: c.type || '', status: c.status, start_date: c.start_date || '', end_date: c.end_date || '', budget: String(c.budget || ''), notes: c.notes || '' });
+    setForm({ name: c.name, type: c.type || '', status: c.status, start_date: c.start_date || '', end_date: c.end_date || '', budget: String(c.budget || ''), notes: c.notes || '', from_email: (c as any).from_email || '', from_name: (c as any).from_name || '' });
     setOpen(true);
   };
 
@@ -73,7 +73,7 @@ export default function Campaigns() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-3xl font-bold">Campañas</h1><p className="text-muted-foreground">Gestiona tus campañas</p></div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ name: '', type: '', status: 'borrador', start_date: '', end_date: '', budget: '', notes: '' }); } }}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ name: '', type: '', status: 'borrador', start_date: '', end_date: '', budget: '', notes: '', from_email: '', from_name: '' }); } }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nueva Campaña</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? 'Editar Campaña' : 'Nueva Campaña'}</DialogTitle></DialogHeader>
@@ -103,6 +103,14 @@ export default function Campaigns() {
                 <div className="space-y-2"><label className="text-sm font-medium">Fecha fin</label><Input type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} /></div>
               </div>
               <div className="space-y-2"><label className="text-sm font-medium">Notas</label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
+              <div className="border-t pt-4 mt-2">
+                <p className="text-sm font-medium mb-1">Remitente personalizado <span className="text-muted-foreground font-normal">(opcional)</span></p>
+                <p className="text-xs text-muted-foreground mb-3">Si no se configura, se usará el remitente del SMTP global.</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><label className="text-sm font-medium">Email remitente</label><Input placeholder="ventas@otrodominio.com" value={form.from_email} onChange={e => setForm({ ...form, from_email: e.target.value })} /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium">Nombre remitente</label><Input placeholder="Otra Empresa" value={form.from_name} onChange={e => setForm({ ...form, from_name: e.target.value })} /></div>
+                </div>
+              </div>
               <Button onClick={handleSave} className="w-full">{editing ? 'Guardar cambios' : 'Crear campaña'}</Button>
             </div>
           </DialogContent>
