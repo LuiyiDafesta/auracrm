@@ -299,11 +299,17 @@ export default function InboxPage() {
                   </div>
                 </div>
               </div>
-              {selected.contactId && (
-                <Button variant="outline" size="sm" onClick={() => navigate(`/contactos/${selected.contactId}`)}>
-                  <User className="h-3.5 w-3.5 mr-1" /> Ver Contacto
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {selected.contactId ? (
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/contactos/${selected.contactId}`)}>
+                    <User className="h-3.5 w-3.5 mr-1" /> Ver Contacto
+                  </Button>
+                ) : (
+                  <Button variant="default" size="sm" onClick={handleCreateContact}>
+                    <UserPlus className="h-3.5 w-3.5 mr-1" /> Crear Contacto
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Messages */}
