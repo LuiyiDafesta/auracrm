@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2/cors";
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -30,7 +31,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const { channel_id, contact_id, content, recipient } = await req.json();
+  const { channel_id, contact_id, content, recipient, subject } = await req.json();
 
   if (!channel_id || !content) {
     return new Response(JSON.stringify({ error: "channel_id and content required" }), {
@@ -111,6 +112,44 @@ Deno.serve(async (req: Request) => {
         if (!res.ok) sendError = JSON.stringify(data);
       } catch (e) {
         sendError = `Telegram error: ${e.message}`;
+      }
+      break;
+    }
+    case "email": {
+      const config = channel.config as any;
+      const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from_email, smtp_from_name, smtp_encryption } = config;
+
+      if (!smtp_host || !smtp_user || !smtp_pass || !smtp_from_email) {
+        sendError = "Canal Email no configurado correctamente (host, usuario, contraseña, email remitente)";
+        break;
+      }
+
+      try {
+        const client = new SmtpClient();
+        const connectConfig = {
+          hostname: smtp_host,
+          port: smtp_port || 587,
+          username: smtp_user,
+          password: smtp_pass,
+        };
+
+        if (smtp_encryption === "ssl") {
+          await client.connectTLS(connectConfig);
+        } else {
+          await client.connect(connectConfig);
+        }
+
+        await client.send({
+          from: smtp_from_name ? `${smtp_from_name} <${smtp_from_email}>` : smtp_from_email,
+          to: recipient,
+          subject: subject || "Mensaje desde AuraCRM",
+          content: content,
+        });
+
+        await client.close();
+        externalId = `email-${Date.now()}`;
+      } catch (e) {
+        sendError = `SMTP error: ${e.message}`;
       }
       break;
     }

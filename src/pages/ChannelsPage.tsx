@@ -38,7 +38,7 @@ export default function ChannelsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', type: 'whatsapp_evolution', api_url: '', instance_name: '', api_key: '', bot_token: '' });
+  const [form, setForm] = useState({ name: '', type: 'whatsapp_evolution', api_url: '', instance_name: '', api_key: '', bot_token: '', smtp_host: '', smtp_port: '587', smtp_user: '', smtp_pass: '', smtp_from_email: '', smtp_from_name: '', smtp_encryption: 'tls' });
   const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
 
   const fetchChannels = async () => {
@@ -61,6 +61,14 @@ export default function ChannelsPage() {
       config.api_key = form.api_key;
     } else if (form.type === 'telegram') {
       config.bot_token = form.bot_token;
+    } else if (form.type === 'email') {
+      config.smtp_host = form.smtp_host;
+      config.smtp_port = parseInt(form.smtp_port) || 587;
+      config.smtp_user = form.smtp_user;
+      config.smtp_pass = form.smtp_pass;
+      config.smtp_from_email = form.smtp_from_email;
+      config.smtp_from_name = form.smtp_from_name;
+      config.smtp_encryption = form.smtp_encryption;
     }
 
     const { error } = await supabase.from('channels').insert({
@@ -75,7 +83,7 @@ export default function ChannelsPage() {
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Canal creado' });
     setDialogOpen(false);
-    setForm({ name: '', type: 'whatsapp_evolution', api_url: '', instance_name: '', api_key: '', bot_token: '' });
+    setForm({ name: '', type: 'whatsapp_evolution', api_url: '', instance_name: '', api_key: '', bot_token: '', smtp_host: '', smtp_port: '587', smtp_user: '', smtp_pass: '', smtp_from_email: '', smtp_from_name: '', smtp_encryption: 'tls' });
     fetchChannels();
   };
 
@@ -150,6 +158,34 @@ export default function ChannelsPage() {
 
               {form.type === 'telegram' && (
                 <div><Label>Bot Token</Label><Input type="password" value={form.bot_token} onChange={e => setForm({ ...form, bot_token: e.target.value })} placeholder="123456:ABC-DEF..." /></div>
+              )}
+
+              {form.type === 'email' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label>Host SMTP</Label><Input value={form.smtp_host} onChange={e => setForm({ ...form, smtp_host: e.target.value })} placeholder="smtp.gmail.com" /></div>
+                    <div><Label>Puerto</Label><Input value={form.smtp_port} onChange={e => setForm({ ...form, smtp_port: e.target.value })} placeholder="587" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label>Usuario</Label><Input value={form.smtp_user} onChange={e => setForm({ ...form, smtp_user: e.target.value })} placeholder="usuario@dominio.com" /></div>
+                    <div><Label>Contraseña</Label><Input type="password" value={form.smtp_pass} onChange={e => setForm({ ...form, smtp_pass: e.target.value })} /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label>Email remitente</Label><Input value={form.smtp_from_email} onChange={e => setForm({ ...form, smtp_from_email: e.target.value })} placeholder="info@tudominio.com" /></div>
+                    <div><Label>Nombre remitente</Label><Input value={form.smtp_from_name} onChange={e => setForm({ ...form, smtp_from_name: e.target.value })} placeholder="Mi Empresa" /></div>
+                  </div>
+                  <div>
+                    <Label>Encriptación</Label>
+                    <Select value={form.smtp_encryption} onValueChange={v => setForm({ ...form, smtp_encryption: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tls">TLS (recomendado)</SelectItem>
+                        <SelectItem value="ssl">SSL</SelectItem>
+                        <SelectItem value="none">Ninguna</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
               )}
 
               <Button onClick={handleCreate} className="w-full">Crear Canal</Button>
