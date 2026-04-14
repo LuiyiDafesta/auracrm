@@ -51,9 +51,9 @@ export function WorkflowEditor({ initialNodes, initialEdges, onChange }: Props) 
       id: `e-${connection.source}-${connection.target}-${Date.now()}`,
       label: connection.sourceHandle === 'yes' ? 'Sí' : connection.sourceHandle === 'no' ? 'No' : undefined,
     };
-    setEdges(eds => {
-      const updated = addEdge(newEdge, eds) as Edge[];
-      onChange(nodes, updated);
+    setEdges((eds: any) => {
+      const updated = addEdge(newEdge, eds);
+      onChange(nodes, updated as any);
       return updated;
     });
   }, [nodes, onChange, setEdges]);
