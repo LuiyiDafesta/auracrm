@@ -280,7 +280,13 @@ export default function EmailBuilderPage() {
         {/* Right: Properties */}
         <div className="w-64 border-l bg-card shrink-0">
           <ScrollArea className="h-full p-3">
-            <PropertiesPanel block={selectedBlock} onUpdate={updateBlockProps} />
+            <PropertiesPanel
+              block={selectedBlock}
+              onUpdate={updateBlockProps}
+              canvasSelected={canvasSelected && !selectedBlockId}
+              canvasSettings={canvasSettings}
+              onUpdateCanvas={setCanvasSettings}
+            />
           </ScrollArea>
         </div>
       </div>
