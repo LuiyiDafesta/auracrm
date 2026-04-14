@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Users, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Filter, UserPlus, X, Search } from 'lucide-react';
 
 interface SegmentRule {
   field: string;
@@ -101,12 +103,19 @@ export default function Segments() {
   const { toast } = useToast();
   const [segments, setSegments] = useState<any[]>([]);
   const [segmentCounts, setSegmentCounts] = useState<Record<string, number>>({});
+  const [manualCounts, setManualCounts] = useState<Record<string, number>>({});
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [tags, setTags] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState({ name: '', description: '' });
   const [rules, setRules] = useState<SegmentRule[]>([{ field: 'status', operator: 'equals', value: '' }]);
+  // Manual contacts dialog
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualSegment, setManualSegment] = useState<any>(null);
+  const [manualContactIds, setManualContactIds] = useState<string[]>([]);
+  const [manualSearch, setManualSearch] = useState('');
 
   const allFields = [
     ...BASE_FIELDS.map(f => ({ value: f.value, label: f.label })),
