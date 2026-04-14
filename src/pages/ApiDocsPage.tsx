@@ -244,16 +244,17 @@ export default function ApiDocsPage() {
         <TabsContent value="api-docs" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>API REST de Contactos</CardTitle>
+              <CardTitle>API REST</CardTitle>
               <CardDescription>Base URL de la API</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
               <div className="flex gap-2">
-                <code className="flex-1 bg-muted p-2 rounded text-sm">{baseUrl}/public-api/v1/contacts</code>
-                <Button size="icon" variant="outline" onClick={() => copyText(`${baseUrl}/public-api/v1/contacts`)}>
+                <code className="flex-1 bg-muted p-2 rounded text-sm">{baseUrl}/public-api/v1/</code>
+                <Button size="icon" variant="outline" onClick={() => copyText(`${baseUrl}/public-api/v1/`)}>
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
+              <p className="text-sm text-muted-foreground">Recursos disponibles: <code>/contacts</code>, <code>/tags</code>, <code>/segments</code>, <code>/custom-fields</code></p>
             </CardContent>
           </Card>
 
@@ -266,100 +267,110 @@ export default function ApiDocsPage() {
             </CardContent>
           </Card>
 
-          <EndpointDoc
-            method="GET"
-            path="/v1/contacts"
-            description="Listar contactos con paginación y filtros"
-            permission="contacts:read"
+          {/* CONTACTS */}
+          <h2 className="text-lg font-bold pt-4">📇 Contactos</h2>
+
+          <EndpointDoc method="GET" path="/v1/contacts" description="Listar contactos con paginación y filtros" permission="contacts:read"
             params={[
               { name: 'page', desc: 'Página (default: 1)' },
               { name: 'per_page', desc: 'Resultados por página (max 100, default: 50)' },
               { name: 'search', desc: 'Buscar por nombre o email' },
-              { name: 'status', desc: 'Filtrar por estado (activo, inactivo, prospecto, cliente)' },
+              { name: 'status', desc: 'Filtrar por estado' },
+              { name: 'tag_id', desc: 'Filtrar por etiqueta (UUID)' },
+              { name: 'segment_id', desc: 'Filtrar por segmento (UUID)' },
             ]}
-            example={`curl -H "x-api-key: YOUR_KEY" \\
-  "${baseUrl}/public-api/v1/contacts?page=1&per_page=20&search=juan"`}
-            response={`{
-  "data": [...],
-  "pagination": {
-    "page": 1,
-    "per_page": 20,
-    "total": 150,
-    "total_pages": 8
-  }
-}`}
+            example={`curl -H "x-api-key: KEY" "${baseUrl}/public-api/v1/contacts?tag_id=UUID&page=1"`}
             baseUrl={baseUrl}
           />
 
-          <EndpointDoc
-            method="GET"
-            path="/v1/contacts/:id"
-            description="Obtener un contacto por ID"
-            permission="contacts:read"
-            example={`curl -H "x-api-key: YOUR_KEY" \\
-  "${baseUrl}/public-api/v1/contacts/UUID_DEL_CONTACTO"`}
+          <EndpointDoc method="GET" path="/v1/contacts/:id" description="Obtener contacto con tags, segmentos y campos personalizados" permission="contacts:read"
             response={`{
   "data": {
-    "id": "uuid",
-    "first_name": "Juan",
-    "last_name": "Pérez",
-    "email": "juan@email.com",
-    ...
+    "id": "uuid", "first_name": "Juan", "email": "...",
+    "tags": [{"id": "uuid", "name": "VIP", "color": "#..."}],
+    "segments": [{"id": "uuid", "name": "Clientes activos"}],
+    "custom_fields": [{"id": "uuid", "name": "Industria", "type": "text", "value": "Tech"}]
   }
 }`}
             baseUrl={baseUrl}
           />
 
-          <EndpointDoc
-            method="POST"
-            path="/v1/contacts"
-            description="Crear un nuevo contacto"
-            permission="contacts:write"
+          <EndpointDoc method="POST" path="/v1/contacts" description="Crear contacto con tags, segmentos y campos personalizados" permission="contacts:write"
             body={`{
-  "first_name": "Juan",       // requerido
-  "last_name": "Pérez",       // opcional
-  "email": "juan@email.com",  // opcional
-  "phone": "+5491155...",      // opcional
-  "position": "CEO",          // opcional
-  "status": "activo",         // opcional (default: activo)
-  "notes": "...",              // opcional
-  "company_id": "uuid",       // opcional
-  "lead_score": 50,           // opcional (default: 0)
-  "tag_ids": ["uuid", "uuid"] // opcional
+  "first_name": "Juan",              // requerido
+  "last_name": "Pérez",
+  "email": "juan@email.com",
+  "phone": "+5491155...",
+  "status": "activo",
+  "tag_ids": ["uuid-tag-1"],         // opcional: asignar etiquetas
+  "segment_ids": ["uuid-seg-1"],     // opcional: agregar a segmentos
+  "custom_fields": [                 // opcional: valores de campos personalizados
+    { "custom_field_id": "uuid", "value": "Tech" }
+  ]
 }`}
-            example={`curl -X POST -H "x-api-key: YOUR_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"first_name":"Juan","email":"juan@email.com"}' \\
-  "${baseUrl}/public-api/v1/contacts"`}
             baseUrl={baseUrl}
           />
 
-          <EndpointDoc
-            method="PUT"
-            path="/v1/contacts/:id"
-            description="Actualizar un contacto"
-            permission="contacts:write"
+          <EndpointDoc method="PUT" path="/v1/contacts/:id" description="Actualizar contacto (incluye reemplazar tags/segmentos)" permission="contacts:write"
             body={`{
-  "first_name": "Juan Carlos",
-  "lead_score": 80
-  // solo los campos que quieras actualizar
+  "lead_score": 80,
+  "tag_ids": ["uuid-1", "uuid-2"],   // reemplaza todas las etiquetas
+  "segment_ids": ["uuid-seg"],       // reemplaza todos los segmentos
+  "custom_fields": [                 // upsert campos personalizados
+    { "custom_field_id": "uuid", "value": "nuevo valor" }
+  ]
 }`}
-            example={`curl -X PUT -H "x-api-key: YOUR_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"lead_score": 80}' \\
-  "${baseUrl}/public-api/v1/contacts/UUID"`}
             baseUrl={baseUrl}
           />
 
-          <EndpointDoc
-            method="DELETE"
-            path="/v1/contacts/:id"
-            description="Eliminar un contacto"
-            permission="contacts:delete"
-            example={`curl -X DELETE -H "x-api-key: YOUR_KEY" \\
-  "${baseUrl}/public-api/v1/contacts/UUID"`}
+          <EndpointDoc method="DELETE" path="/v1/contacts/:id" description="Eliminar contacto" permission="contacts:delete" baseUrl={baseUrl} />
+
+          <h3 className="text-sm font-semibold pt-2">Sub-recursos de contacto</h3>
+
+          <EndpointDoc method="GET" path="/v1/contacts/:id/tags" description="Listar etiquetas del contacto" permission="contacts:read" baseUrl={baseUrl} />
+          <EndpointDoc method="POST" path="/v1/contacts/:id/tags" description="Agregar etiqueta al contacto" permission="contacts:write" body={`{ "tag_id": "uuid" }`} baseUrl={baseUrl} />
+          <EndpointDoc method="DELETE" path="/v1/contacts/:id/tags?tag_id=UUID" description="Quitar etiqueta del contacto" permission="contacts:write" baseUrl={baseUrl} />
+
+          <EndpointDoc method="GET" path="/v1/contacts/:id/segments" description="Listar segmentos del contacto" permission="contacts:read" baseUrl={baseUrl} />
+          <EndpointDoc method="POST" path="/v1/contacts/:id/segments" description="Agregar contacto a segmento" permission="contacts:write" body={`{ "segment_id": "uuid" }`} baseUrl={baseUrl} />
+          <EndpointDoc method="DELETE" path="/v1/contacts/:id/segments?segment_id=UUID" description="Quitar contacto de segmento" permission="contacts:write" baseUrl={baseUrl} />
+
+          <EndpointDoc method="GET" path="/v1/contacts/:id/custom-fields" description="Listar valores de campos personalizados" permission="contacts:read" baseUrl={baseUrl} />
+          <EndpointDoc method="POST" path="/v1/contacts/:id/custom-fields" description="Establecer valor de campo personalizado" permission="contacts:write" body={`{ "custom_field_id": "uuid", "value": "Tech" }`} baseUrl={baseUrl} />
+
+          {/* TAGS */}
+          <h2 className="text-lg font-bold pt-4">🏷️ Etiquetas</h2>
+          <EndpointDoc method="GET" path="/v1/tags" description="Listar todas las etiquetas" permission="tags:read" baseUrl={baseUrl} />
+          <EndpointDoc method="GET" path="/v1/tags/:id" description="Obtener etiqueta por ID" permission="tags:read" baseUrl={baseUrl} />
+          <EndpointDoc method="POST" path="/v1/tags" description="Crear etiqueta" permission="tags:write" body={`{ "name": "VIP", "color": "#EF4444" }`} baseUrl={baseUrl} />
+          <EndpointDoc method="PUT" path="/v1/tags/:id" description="Actualizar etiqueta" permission="tags:write" body={`{ "name": "Premium", "color": "#8B5CF6" }`} baseUrl={baseUrl} />
+          <EndpointDoc method="DELETE" path="/v1/tags/:id" description="Eliminar etiqueta" permission="tags:write" baseUrl={baseUrl} />
+
+          {/* SEGMENTS */}
+          <h2 className="text-lg font-bold pt-4">📋 Segmentos</h2>
+          <EndpointDoc method="GET" path="/v1/segments" description="Listar todos los segmentos" permission="segments:read" baseUrl={baseUrl} />
+          <EndpointDoc method="GET" path="/v1/segments/:id" description="Obtener segmento por ID" permission="segments:read" baseUrl={baseUrl} />
+          <EndpointDoc method="GET" path="/v1/segments/:id/contacts" description="Listar contactos del segmento" permission="segments:read" baseUrl={baseUrl} />
+          <EndpointDoc method="POST" path="/v1/segments" description="Crear segmento" permission="segments:write" body={`{ "name": "Clientes Gold", "description": "..." }`} baseUrl={baseUrl} />
+          <EndpointDoc method="POST" path="/v1/segments/:id/contacts" description="Agregar contacto al segmento" permission="segments:write" body={`{ "contact_id": "uuid" }`} baseUrl={baseUrl} />
+          <EndpointDoc method="DELETE" path="/v1/segments/:id" description="Eliminar segmento" permission="segments:write" baseUrl={baseUrl} />
+          <EndpointDoc method="DELETE" path="/v1/segments/:id/contacts?contact_id=UUID" description="Quitar contacto del segmento" permission="segments:write" baseUrl={baseUrl} />
+
+          {/* CUSTOM FIELDS */}
+          <h2 className="text-lg font-bold pt-4">✏️ Campos Personalizados</h2>
+          <EndpointDoc method="GET" path="/v1/custom-fields" description="Listar campos personalizados" permission="custom_fields:read" baseUrl={baseUrl} />
+          <EndpointDoc method="GET" path="/v1/custom-fields/:id" description="Obtener campo personalizado por ID" permission="custom_fields:read" baseUrl={baseUrl} />
+          <EndpointDoc method="POST" path="/v1/custom-fields" description="Crear campo personalizado" permission="custom_fields:write"
+            body={`{
+  "name": "Industria",
+  "field_type": "text",       // text, number, select, date, checkbox
+  "is_required": false,
+  "options": ["Tech", "Finance", "Health"]  // solo para tipo select
+}`}
             baseUrl={baseUrl}
           />
+          <EndpointDoc method="PUT" path="/v1/custom-fields/:id" description="Actualizar campo personalizado" permission="custom_fields:write" baseUrl={baseUrl} />
+          <EndpointDoc method="DELETE" path="/v1/custom-fields/:id" description="Eliminar campo personalizado" permission="custom_fields:write" baseUrl={baseUrl} />
         </TabsContent>
 
         {/* WEBHOOKS TAB */}
