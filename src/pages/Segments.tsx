@@ -269,6 +269,48 @@ export default function Segments() {
     `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(manualSearch.toLowerCase())
   );
 
+  const openViewContacts = async (seg: any) => {
+    setViewSegment(seg);
+    setViewSearch('');
+    setViewLoading(true);
+    setViewOpen(true);
+
+    // Fetch contacts matching rules
+    const segRules = (seg.rules || []) as SegmentRule[];
+    let query = supabase.from('contacts').select('id, first_name, last_name, email, lead_score, status') as any;
+    for (const rule of segRules) {
+      if (rule.field === 'tag' || rule.field.startsWith('cf_')) continue;
+      query = applyFilter(query, rule);
+    }
+    const { data: ruleContacts } = await query;
+
+    // Fetch manually added contacts
+    const { data: manualRows } = await supabase.from('segment_contacts').select('contact_id').eq('segment_id', seg.id);
+    const manualIds = (manualRows || []).map((r: any) => r.contact_id);
+    let manualContacts: any[] = [];
+    if (manualIds.length > 0) {
+      const { data } = await supabase.from('contacts').select('id, first_name, last_name, email, lead_score, status').in('id', manualIds);
+      manualContacts = data || [];
+    }
+
+    // Merge and deduplicate
+    const allMap = new Map<string, any>();
+    (ruleContacts || []).forEach((c: any) => allMap.set(c.id, { ...c, source: 'regla' }));
+    manualContacts.forEach(c => {
+      if (allMap.has(c.id)) {
+        allMap.set(c.id, { ...allMap.get(c.id), source: 'ambos' });
+      } else {
+        allMap.set(c.id, { ...c, source: 'manual' });
+      }
+    });
+    setViewContacts(Array.from(allMap.values()));
+    setViewLoading(false);
+  };
+
+  const viewFilteredContacts = viewContacts.filter(c =>
+    `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(viewSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
