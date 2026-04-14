@@ -52,7 +52,7 @@ export function WorkflowEditor({ initialNodes, initialEdges, onChange }: Props) 
       label: connection.sourceHandle === 'yes' ? 'Sí' : connection.sourceHandle === 'no' ? 'No' : undefined,
     };
     setEdges(eds => {
-      const updated = addEdge(newEdge, eds);
+      const updated = addEdge(newEdge, eds) as Edge[];
       onChange(nodes, updated);
       return updated;
     });
