@@ -74,15 +74,16 @@ export default function ProjectDetailPage() {
 
   const linkEntity = async () => {
     if (!linkType || !linkId || !id) return;
-    const table = linkType === 'contacts' ? 'project_contacts'
-      : linkType === 'campaigns' ? 'project_campaigns'
-      : linkType === 'opportunities' ? 'project_opportunities'
-      : 'project_tasks';
-    const fk = linkType === 'contacts' ? 'contact_id'
-      : linkType === 'campaigns' ? 'campaign_id'
-      : linkType === 'opportunities' ? 'opportunity_id'
-      : 'task_id';
-    const { error } = await supabase.from(table).insert({ project_id: id, [fk]: linkId } as any);
+    let error: any;
+    if (linkType === 'contacts') {
+      ({ error } = await supabase.from('project_contacts').insert({ project_id: id, contact_id: linkId }));
+    } else if (linkType === 'campaigns') {
+      ({ error } = await supabase.from('project_campaigns').insert({ project_id: id, campaign_id: linkId }));
+    } else if (linkType === 'opportunities') {
+      ({ error } = await supabase.from('project_opportunities').insert({ project_id: id, opportunity_id: linkId }));
+    } else {
+      ({ error } = await supabase.from('project_tasks').insert({ project_id: id, task_id: linkId }));
+    }
     if (error) {
       toast({ title: 'Error', description: error.message.includes('duplicate') ? 'Ya está vinculado' : error.message, variant: 'destructive' });
     } else {
@@ -94,15 +95,15 @@ export default function ProjectDetailPage() {
 
   const unlinkEntity = async (type: string, entityId: string) => {
     if (!id) return;
-    const table = type === 'contacts' ? 'project_contacts'
-      : type === 'campaigns' ? 'project_campaigns'
-      : type === 'opportunities' ? 'project_opportunities'
-      : 'project_tasks';
-    const fk = type === 'contacts' ? 'contact_id'
-      : type === 'campaigns' ? 'campaign_id'
-      : type === 'opportunities' ? 'opportunity_id'
-      : 'task_id';
-    await supabase.from(table).delete().eq('project_id', id).eq(fk as any, entityId);
+    if (type === 'contacts') {
+      await supabase.from('project_contacts').delete().eq('project_id', id).eq('contact_id', entityId);
+    } else if (type === 'campaigns') {
+      await supabase.from('project_campaigns').delete().eq('project_id', id).eq('campaign_id', entityId);
+    } else if (type === 'opportunities') {
+      await supabase.from('project_opportunities').delete().eq('project_id', id).eq('opportunity_id', entityId);
+    } else {
+      await supabase.from('project_tasks').delete().eq('project_id', id).eq('task_id', entityId);
+    }
     toast({ title: 'Desvinculado' });
     fetchData();
   };
