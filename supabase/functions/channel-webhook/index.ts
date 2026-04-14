@@ -158,24 +158,8 @@ Deno.serve(async (req: Request) => {
 
       if (contacts && contacts.length > 0) {
         contactId = contacts[0].id;
-      } else {
-        // Auto-create contact
-        const isEmail = identifier.includes("@") || channel.type === "email";
-        const { data: newContact } = await supabase
-          .from("contacts")
-          .insert({
-            user_id: channel.user_id,
-            first_name: msg.sender_name.split(" ")[0] || "Lead",
-            last_name: msg.sender_name.split(" ").slice(1).join(" ") || null,
-            phone: !isEmail ? identifier : null,
-            email: isEmail ? (msg.sender_identifier.includes("@") ? msg.sender_identifier : identifier) : null,
-            status: "activo",
-            notes: `Lead capturado desde canal: ${channel.name}`,
-          })
-          .select("id")
-          .single();
-        contactId = newContact?.id || null;
       }
+      // No auto-create — user creates contacts manually from the inbox
     }
 
     // Insert message

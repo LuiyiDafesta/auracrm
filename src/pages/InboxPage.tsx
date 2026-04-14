@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Inbox, Phone, Bot, Mail, MessageSquare, Globe, User, Search, CheckCheck } from 'lucide-react';
+import { Send, Inbox, Phone, Bot, Mail, MessageSquare, Globe, User, Search, CheckCheck, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -148,6 +148,35 @@ export default function InboxPage() {
     }
   }, [selectedConv]);
 
+  const handleCreateContact = async () => {
+    if (!selected || !user) return;
+    const identifier = selected.identifier.replace(/@.*$/, '');
+    const isEmail = identifier.includes('@') || selected.channelType === 'email';
+    const { data: newContact, error } = await supabase.from('contacts').insert({
+      user_id: user.id,
+      first_name: selected.name.split(' ')[0] || 'Lead',
+      last_name: selected.name.split(' ').slice(1).join(' ') || null,
+      phone: !isEmail ? identifier : null,
+      email: isEmail ? identifier : null,
+      status: 'activo',
+      notes: `Lead capturado desde canal: ${selected.channelName}`,
+    }).select('id').single();
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    // Link all messages from this conversation to the new contact
+    if (newContact) {
+      const msgIds = selected.messages.map(m => m.id);
+      await supabase.from('channel_messages').update({ contact_id: newContact.id }).in('id', msgIds);
+      toast({ title: 'Contacto creado y vinculado' });
+      fetchData();
+    }
+  };
+
+
   const handleSend = async () => {
     if (!replyText.trim() || !selected) return;
     setSending(true);
@@ -270,11 +299,17 @@ export default function InboxPage() {
                   </div>
                 </div>
               </div>
-              {selected.contactId && (
-                <Button variant="outline" size="sm" onClick={() => navigate(`/contactos/${selected.contactId}`)}>
-                  <User className="h-3.5 w-3.5 mr-1" /> Ver Contacto
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {selected.contactId ? (
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/contactos/${selected.contactId}`)}>
+                    <User className="h-3.5 w-3.5 mr-1" /> Ver Contacto
+                  </Button>
+                ) : (
+                  <Button variant="default" size="sm" onClick={handleCreateContact}>
+                    <UserPlus className="h-3.5 w-3.5 mr-1" /> Crear Contacto
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Messages */}
