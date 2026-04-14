@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, GripVertical, Eye, EyeOff } from 'lucide-react';
+import { CopyId } from '@/components/CopyId';
 
 const FIELD_TYPES = [
   { value: 'text', label: 'Texto' },
@@ -165,6 +166,7 @@ export default function CustomFieldsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-24">ID</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Obligatorio</TableHead>
@@ -175,6 +177,7 @@ export default function CustomFieldsPage() {
               <TableBody>
                 {fields.map(f => (
                   <TableRow key={f.id}>
+                    <TableCell><CopyId id={f.id} /></TableCell>
                     <TableCell className="font-medium">{f.name}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{FIELD_TYPES.find(t => t.value === f.field_type)?.label || f.field_type}</Badge>
