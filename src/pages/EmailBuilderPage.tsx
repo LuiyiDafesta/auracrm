@@ -82,6 +82,7 @@ export default function EmailBuilderPage() {
     setBlocks((prev) => [...prev, newBlock]);
     setSelectedBlockId(newBlock.id);
     setSelectedChildId(null);
+    setCanvasSelected(false);
   }, []);
 
   const updateBlockProps = useCallback((blockId: string, props: Record<string, any>) => {
