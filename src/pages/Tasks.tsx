@@ -38,6 +38,8 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [form, setForm] = useState({ title: '', description: '', priority: 'media' as Task['priority'], status: 'pendiente' as Task['status'], due_date: '', contact_id: '' });
