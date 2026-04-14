@@ -28,6 +28,13 @@ export default function EmailBuilderPage() {
   const [blocks, setBlocks] = useState<EmailBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [canvasSettings, setCanvasSettings] = useState({
+    bgColor: '#f4f4f5',
+    contentBgColor: '#ffffff',
+    contentPadding: '16',
+    contentBorderRadius: '8',
+  });
+  const [canvasSelected, setCanvasSelected] = useState(false);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [showPreview, setShowPreview] = useState(false);
   const [showCode, setShowCode] = useState(false);
