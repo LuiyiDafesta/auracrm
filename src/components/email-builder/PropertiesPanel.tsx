@@ -3,20 +3,59 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
+
+export interface CanvasSettings {
+  bgColor: string;
+  contentBgColor: string;
+  contentPadding: string;
+  contentBorderRadius: string;
+}
 
 interface PropertiesPanelProps {
   block: EmailBlock | null;
   onUpdate: (id: string, props: Record<string, any>) => void;
+  canvasSelected?: boolean;
+  canvasSettings?: CanvasSettings;
+  onUpdateCanvas?: (settings: CanvasSettings) => void;
 }
 
-export function PropertiesPanel({ block, onUpdate }: PropertiesPanelProps) {
+export function PropertiesPanel({ block, onUpdate, canvasSelected, canvasSettings, onUpdateCanvas }: PropertiesPanelProps) {
+  if (!block && canvasSelected && canvasSettings && onUpdateCanvas) {
+    return (
+      <div className="space-y-4 p-1">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Lienzo</h3>
+        <div className="space-y-1">
+          <Label className="text-xs">Color de fondo exterior</Label>
+          <div className="flex gap-2">
+            <input type="color" value={canvasSettings.bgColor} onChange={(e) => onUpdateCanvas({ ...canvasSettings, bgColor: e.target.value })} className="w-8 h-8 rounded border cursor-pointer" />
+            <Input className="h-8 text-xs flex-1" value={canvasSettings.bgColor} onChange={(e) => onUpdateCanvas({ ...canvasSettings, bgColor: e.target.value })} />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Color de fondo contenido</Label>
+          <div className="flex gap-2">
+            <input type="color" value={canvasSettings.contentBgColor} onChange={(e) => onUpdateCanvas({ ...canvasSettings, contentBgColor: e.target.value })} className="w-8 h-8 rounded border cursor-pointer" />
+            <Input className="h-8 text-xs flex-1" value={canvasSettings.contentBgColor} onChange={(e) => onUpdateCanvas({ ...canvasSettings, contentBgColor: e.target.value })} />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Padding contenido ({canvasSettings.contentPadding}px)</Label>
+          <Slider value={[parseInt(canvasSettings.contentPadding)]} min={0} max={60} step={4} onValueChange={([v]) => onUpdateCanvas({ ...canvasSettings, contentPadding: String(v) })} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Radio borde ({canvasSettings.contentBorderRadius}px)</Label>
+          <Slider value={[parseInt(canvasSettings.contentBorderRadius)]} min={0} max={24} step={2} onValueChange={([v]) => onUpdateCanvas({ ...canvasSettings, contentBorderRadius: String(v) })} />
+        </div>
+      </div>
+    );
+  }
+
   if (!block) {
     return (
       <div className="p-4 text-center text-muted-foreground text-sm">
-        <p className="mt-8">Selecciona un bloque para editar sus propiedades</p>
+        <p className="mt-8">Selecciona un bloque o el lienzo para editar sus propiedades</p>
       </div>
     );
   }
