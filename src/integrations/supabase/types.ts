@@ -61,6 +61,11 @@ export type Database = {
       }
       campaign_sends: {
         Row: {
+          ab_parent_id: string | null
+          ab_test_percentage: number | null
+          ab_variant: string | null
+          ab_wait_hours: number | null
+          ab_winner_sent: boolean
           campaign_id: string
           completed_at: string | null
           created_at: string
@@ -69,16 +74,23 @@ export type Database = {
           from_email: string | null
           from_name: string | null
           id: string
+          is_ab_test: boolean
           segment_id: string
           sent_count: number
           started_at: string | null
           status: Database["public"]["Enums"]["campaign_send_status"]
           template_id: string
+          template_id_b: string | null
           total_emails: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          ab_parent_id?: string | null
+          ab_test_percentage?: number | null
+          ab_variant?: string | null
+          ab_wait_hours?: number | null
+          ab_winner_sent?: boolean
           campaign_id: string
           completed_at?: string | null
           created_at?: string
@@ -87,16 +99,23 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          is_ab_test?: boolean
           segment_id: string
           sent_count?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["campaign_send_status"]
           template_id: string
+          template_id_b?: string | null
           total_emails?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          ab_parent_id?: string | null
+          ab_test_percentage?: number | null
+          ab_variant?: string | null
+          ab_wait_hours?: number | null
+          ab_winner_sent?: boolean
           campaign_id?: string
           completed_at?: string | null
           created_at?: string
@@ -105,16 +124,25 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          is_ab_test?: boolean
           segment_id?: string
           sent_count?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["campaign_send_status"]
           template_id?: string
+          template_id_b?: string | null
           total_emails?: number
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "campaign_sends_ab_parent_id_fkey"
+            columns: ["ab_parent_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_sends"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "campaign_sends_campaign_id_fkey"
             columns: ["campaign_id"]
@@ -127,6 +155,13 @@ export type Database = {
             columns: ["segment_id"]
             isOneToOne: false
             referencedRelation: "segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_sends_template_id_b_fkey"
+            columns: ["template_id_b"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
             referencedColumns: ["id"]
           },
           {
@@ -420,10 +455,12 @@ export type Database = {
           created_at: string
           error_message: string | null
           id: string
+          scheduled_date: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["email_queue_status"]
           to_email: string
           to_name: string
+          variant: string | null
         }
         Insert: {
           campaign_send_id: string
@@ -431,10 +468,12 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          scheduled_date?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["email_queue_status"]
           to_email: string
           to_name?: string
+          variant?: string | null
         }
         Update: {
           campaign_send_id?: string
@@ -442,10 +481,12 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          scheduled_date?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["email_queue_status"]
           to_email?: string
           to_name?: string
+          variant?: string | null
         }
         Relationships: [
           {
@@ -504,6 +545,54 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_tracking: {
+        Row: {
+          campaign_send_id: string
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          link_url: string | null
+          queue_item_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          campaign_send_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          link_url?: string | null
+          queue_item_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          campaign_send_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          link_url?: string | null
+          queue_item_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_tracking_campaign_send_id_fkey"
+            columns: ["campaign_send_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_sends"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_tracking_queue_item_id_fkey"
+            columns: ["queue_item_id"]
+            isOneToOne: false
+            referencedRelation: "email_queue"
             referencedColumns: ["id"]
           },
         ]

@@ -7,8 +7,31 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-async function sleep(ms: number) {
+const FUNCTION_BASE = Deno.env.get("SUPABASE_URL")! + "/functions/v1/email-track";
+
+function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function injectTracking(html: string, queueItemId: string, campaignSendId: string): string {
+  // Inject open tracking pixel before </body>
+  const pixelUrl = `${FUNCTION_BASE}?t=open&q=${queueItemId}&s=${campaignSendId}`;
+  const pixel = `<img src="${pixelUrl}" width="1" height="1" style="display:none" alt="" />`;
+
+  // Replace links with click tracking redirects
+  let tracked = html.replace(/href="(https?:\/\/[^"]+)"/g, (_match, url) => {
+    const trackUrl = `${FUNCTION_BASE}?t=click&q=${queueItemId}&s=${campaignSendId}&url=${encodeURIComponent(url)}`;
+    return `href="${trackUrl}"`;
+  });
+
+  // Add pixel
+  if (tracked.includes("</body>")) {
+    tracked = tracked.replace("</body>", `${pixel}</body>`);
+  } else {
+    tracked += pixel;
+  }
+
+  return tracked;
 }
 
 Deno.serve(async (req) => {
@@ -17,6 +40,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const today = new Date().toISOString().split("T")[0];
+
     // Find active campaign_sends that are processing
     const { data: activeSends } = await supabase
       .from("campaign_sends")
@@ -34,7 +59,7 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const send of activeSends) {
-      const result = await processSend(send);
+      const result = await processSend(send, today);
       results.push(result);
     }
 
@@ -49,9 +74,8 @@ Deno.serve(async (req) => {
   }
 });
 
-async function processSend(send: any) {
-  const batchSize = send.emails_per_second;
-  const delayMs = 1000; // 1 second between batches
+async function processSend(send: any, today: string) {
+  const batchSize = send.emails_per_second || 1;
 
   // Get SMTP config for this user
   const { data: smtpConfig } = await supabase
@@ -77,7 +101,6 @@ async function processSend(send: any) {
     return { send_id: send.id, error: "Plantilla no encontrada" };
   }
 
-  // Determine sender
   const fromEmail = send.from_email || smtpConfig.from_email;
   const fromName = send.from_name || smtpConfig.from_name || "";
 
@@ -101,39 +124,53 @@ async function processSend(send: any) {
     return { send_id: send.id, error: `Error SMTP: ${e instanceof Error ? e.message : e}` };
   }
 
-  // Fetch pending emails in batch
+  // Fetch pending emails for today (or without scheduled_date) in batch
   const { data: pendingEmails } = await supabase
     .from("email_queue")
     .select("*")
     .eq("campaign_send_id", send.id)
     .eq("status", "pending")
+    .or(`scheduled_date.is.null,scheduled_date.lte.${today}`)
     .order("created_at", { ascending: true })
     .limit(batchSize);
 
   if (!pendingEmails || pendingEmails.length === 0) {
-    // All done
-    await supabase.from("campaign_sends").update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-    }).eq("id", send.id);
+    // Check if there are future scheduled emails
+    const { count } = await supabase
+      .from("email_queue")
+      .select("*", { count: "exact", head: true })
+      .eq("campaign_send_id", send.id)
+      .eq("status", "pending");
+
+    if (!count || count === 0) {
+      await supabase.from("campaign_sends").update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      }).eq("id", send.id);
+      try { await client.close(); } catch (_) {}
+      return { send_id: send.id, status: "completed" };
+    }
+
+    // Future emails exist, skip for now
     try { await client.close(); } catch (_) {}
-    return { send_id: send.id, status: "completed" };
+    return { send_id: send.id, status: "waiting_for_scheduled_date", remaining: count };
   }
 
   let sentInBatch = 0;
   let failedInBatch = 0;
 
   for (const email of pendingEmails) {
-    // Mark as sending
     await supabase.from("email_queue").update({ status: "sending" }).eq("id", email.id);
 
     try {
       const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
 
-      // Replace contact variables in HTML
       let html = template.html_content || "<p>Sin contenido</p>";
       html = html.replace(/\{\{nombre\}\}/gi, email.to_name || "");
       html = html.replace(/\{\{email\}\}/gi, email.to_email || "");
+
+      // Inject tracking
+      html = injectTracking(html, email.id, send.id);
 
       await client.send({
         from,
@@ -144,24 +181,19 @@ async function processSend(send: any) {
       });
 
       await supabase.from("email_queue").update({
-        status: "sent",
-        sent_at: new Date().toISOString(),
+        status: "sent", sent_at: new Date().toISOString(),
       }).eq("id", email.id);
 
       sentInBatch++;
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : String(e);
       await supabase.from("email_queue").update({
-        status: "failed",
-        error_message: errorMsg.substring(0, 500),
+        status: "failed", error_message: errorMsg.substring(0, 500),
       }).eq("id", email.id);
       failedInBatch++;
     }
 
-    // Throttle: wait between individual emails within batch
-    if (batchSize > 1) {
-      await sleep(Math.floor(1000 / batchSize));
-    }
+    if (batchSize > 1) await sleep(Math.floor(1000 / batchSize));
   }
 
   // Update counts

@@ -9,7 +9,34 @@ const BodySchema = z.object({
   emails_per_second: z.number().int().min(1).max(20).default(1),
   from_email: z.string().email().max(255).optional(),
   from_name: z.string().max(255).optional(),
+  // A/B testing
+  is_ab_test: z.boolean().default(false),
+  template_id_b: z.string().uuid().optional(),
+  ab_test_percentage: z.number().int().min(1).max(50).default(10),
+  ab_wait_hours: z.number().int().min(1).max(168).default(24),
+  // Date distribution
+  distribute_over_days: z.boolean().default(false),
 });
+
+function getDatesBetween(start: string, end: string): string[] {
+  const dates: string[] = [];
+  const d = new Date(start);
+  const endDate = new Date(end);
+  while (d <= endDate) {
+    dates.push(d.toISOString().split("T")[0]);
+    d.setDate(d.getDate() + 1);
+  }
+  return dates.length > 0 ? dates : [new Date().toISOString().split("T")[0]];
+}
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -46,9 +73,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { campaign_id, segment_id, template_id, emails_per_second, from_email, from_name } = parsed.data;
+    const { campaign_id, segment_id, template_id, emails_per_second, from_email, from_name,
+            is_ab_test, template_id_b, ab_test_percentage, ab_wait_hours, distribute_over_days } = parsed.data;
 
-    // Use service role to read segment contacts and insert queue
+    if (is_ab_test && !template_id_b) {
+      return new Response(JSON.stringify({ error: "Se requiere una plantilla B para el A/B test" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -56,14 +89,14 @@ Deno.serve(async (req) => {
 
     // Verify campaign belongs to user
     const { data: campaign } = await supabaseAdmin
-      .from("campaigns").select("id, user_id, from_email, from_name").eq("id", campaign_id).single();
+      .from("campaigns").select("*").eq("id", campaign_id).single();
     if (!campaign || campaign.user_id !== user.id) {
       return new Response(JSON.stringify({ error: "Campaña no encontrada" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get contacts in segment that have an email
+    // Get contacts in segment with email
     const { data: segmentContacts, error: scError } = await supabaseAdmin
       .from("segment_contacts")
       .select("contact_id, contacts(id, email, first_name, last_name)")
@@ -90,64 +123,116 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Determine sender: param > campaign > global smtp (resolved at send time)
     const resolvedFromEmail = from_email || campaign.from_email || null;
     const resolvedFromName = from_name || campaign.from_name || null;
 
-    // Create campaign_send record
-    const { data: campaignSend, error: csError } = await supabaseAdmin
-      .from("campaign_sends")
-      .insert({
-        user_id: user.id,
-        campaign_id,
-        segment_id,
-        template_id,
-        emails_per_second,
-        total_emails: validContacts.length,
-        from_email: resolvedFromEmail,
-        from_name: resolvedFromName,
-        status: "processing",
-        started_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    // Calculate date distribution
+    const dates = distribute_over_days && campaign.start_date && campaign.end_date
+      ? getDatesBetween(campaign.start_date, campaign.end_date)
+      : [new Date().toISOString().split("T")[0]];
 
-    if (csError) {
-      return new Response(JSON.stringify({ error: csError.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (is_ab_test) {
+      // === A/B TEST FLOW ===
+      const shuffled = shuffleArray(validContacts);
+      const testCount = Math.max(2, Math.floor(shuffled.length * (ab_test_percentage / 100)));
+      const testPerVariant = Math.floor(testCount / 2);
+      const testA = shuffled.slice(0, testPerVariant);
+      const testB = shuffled.slice(testPerVariant, testPerVariant * 2);
+      const remaining = shuffled.slice(testPerVariant * 2);
 
-    // Enqueue all emails
-    const queueItems = validContacts.map((c: any) => ({
-      campaign_send_id: campaignSend.id,
-      contact_id: c.contact_id,
-      to_email: c.to_email,
-      to_name: c.to_name,
-      status: "pending",
-    }));
+      // Create send A
+      const { data: sendA, error: errA } = await supabaseAdmin.from("campaign_sends").insert({
+        user_id: user.id, campaign_id, segment_id, template_id,
+        emails_per_second, from_email: resolvedFromEmail, from_name: resolvedFromName,
+        status: "processing", started_at: new Date().toISOString(),
+        total_emails: testA.length,
+        is_ab_test: true, ab_variant: "A", ab_test_percentage, ab_wait_hours,
+      }).select().single();
 
-    // Insert in batches of 500
-    for (let i = 0; i < queueItems.length; i += 500) {
-      const batch = queueItems.slice(i, i + 500);
-      const { error: qError } = await supabaseAdmin.from("email_queue").insert(batch);
-      if (qError) {
-        await supabaseAdmin.from("campaign_sends").update({ status: "failed" }).eq("id", campaignSend.id);
-        return new Response(JSON.stringify({ error: qError.message }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (errA) throw new Error(errA.message);
+
+      // Create send B
+      const { data: sendB, error: errB } = await supabaseAdmin.from("campaign_sends").insert({
+        user_id: user.id, campaign_id, segment_id, template_id: template_id_b!,
+        emails_per_second, from_email: resolvedFromEmail, from_name: resolvedFromName,
+        status: "processing", started_at: new Date().toISOString(),
+        total_emails: testB.length,
+        is_ab_test: true, ab_variant: "B", ab_parent_id: sendA.id,
+        ab_test_percentage, ab_wait_hours, template_id_b: template_id_b!,
+      }).select().single();
+
+      if (errB) throw new Error(errB.message);
+
+      // Update A with reference to B and store remaining count
+      await supabaseAdmin.from("campaign_sends").update({
+        ab_parent_id: sendB.id,
+        template_id_b: template_id_b!,
+      }).eq("id", sendA.id);
+
+      // Enqueue test A emails
+      const queueA = testA.map((c: any) => ({
+        campaign_send_id: sendA.id, contact_id: c.contact_id,
+        to_email: c.to_email, to_name: c.to_name, status: "pending",
+        variant: "A", scheduled_date: dates[0],
+      }));
+
+      // Enqueue test B emails
+      const queueB = testB.map((c: any) => ({
+        campaign_send_id: sendB.id, contact_id: c.contact_id,
+        to_email: c.to_email, to_name: c.to_name, status: "pending",
+        variant: "B", scheduled_date: dates[0],
+      }));
+
+      // Insert in batches
+      for (const batch of [queueA, queueB]) {
+        for (let i = 0; i < batch.length; i += 500) {
+          await supabaseAdmin.from("email_queue").insert(batch.slice(i, i + 500));
+        }
       }
-    }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
+      return new Response(JSON.stringify({
+        success: true, type: "ab_test",
+        send_a_id: sendA.id, send_b_id: sendB.id,
+        test_emails_a: testA.length, test_emails_b: testB.length,
+        remaining_emails: remaining.length,
+        wait_hours: ab_wait_hours,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    } else {
+      // === NORMAL SEND FLOW ===
+      const { data: campaignSend, error: csError } = await supabaseAdmin
+        .from("campaign_sends").insert({
+          user_id: user.id, campaign_id, segment_id, template_id,
+          emails_per_second, from_email: resolvedFromEmail, from_name: resolvedFromName,
+          status: "processing", started_at: new Date().toISOString(),
+          total_emails: validContacts.length,
+        }).select().single();
+
+      if (csError) throw new Error(csError.message);
+
+      // Distribute contacts across dates
+      const queueItems = validContacts.map((c: any, i: number) => ({
+        campaign_send_id: campaignSend.id, contact_id: c.contact_id,
+        to_email: c.to_email, to_name: c.to_name, status: "pending",
+        scheduled_date: dates[i % dates.length],
+      }));
+
+      for (let i = 0; i < queueItems.length; i += 500) {
+        const batch = queueItems.slice(i, i + 500);
+        const { error: qError } = await supabaseAdmin.from("email_queue").insert(batch);
+        if (qError) {
+          await supabaseAdmin.from("campaign_sends").update({ status: "failed" }).eq("id", campaignSend.id);
+          throw new Error(qError.message);
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true, type: "normal",
         campaign_send_id: campaignSend.id,
         total_emails: validContacts.length,
-        emails_per_second,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+        emails_per_second, days: dates.length,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error desconocido";
     return new Response(JSON.stringify({ error: message }), {
