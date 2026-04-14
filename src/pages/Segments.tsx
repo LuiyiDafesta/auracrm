@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Users, Filter, UserPlus, X, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Filter, UserPlus, X, Search, Eye } from 'lucide-react';
 
 interface SegmentRule {
   field: string;
@@ -116,6 +116,12 @@ export default function Segments() {
   const [manualSegment, setManualSegment] = useState<any>(null);
   const [manualContactIds, setManualContactIds] = useState<string[]>([]);
   const [manualSearch, setManualSearch] = useState('');
+  // View contacts dialog
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewSegment, setViewSegment] = useState<any>(null);
+  const [viewContacts, setViewContacts] = useState<any[]>([]);
+  const [viewSearch, setViewSearch] = useState('');
+  const [viewLoading, setViewLoading] = useState(false);
 
   const allFields = [
     ...BASE_FIELDS.map(f => ({ value: f.value, label: f.label })),
