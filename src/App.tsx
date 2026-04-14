@@ -20,6 +20,8 @@ import Segments from "./pages/Segments";
 import CustomFieldsPage from "./pages/CustomFieldsPage";
 import ContactDetail from "./pages/ContactDetail";
 import NotFound from "./pages/NotFound";
+import EmailTemplates from "./pages/EmailTemplates";
+import EmailBuilderPage from "./pages/EmailBuilderPage";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +61,8 @@ const App = () => (
             <Route path="/segmentos" element={<ProtectedRoute><Segments /></ProtectedRoute>} />
             <Route path="/campos-personalizados" element={<ProtectedRoute><CustomFieldsPage /></ProtectedRoute>} />
             <Route path="/contactos/:id" element={<ProtectedRoute><ContactDetail /></ProtectedRoute>} />
+            <Route path="/email-builder" element={<ProtectedRoute><EmailTemplates /></ProtectedRoute>} />
+            <Route path="/email-builder/:id" element={<ProtectedRoute><EmailBuilderPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
