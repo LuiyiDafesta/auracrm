@@ -238,6 +238,31 @@ export default function Segments() {
 
   const needsValueInput = (op: string) => !['is_empty', 'is_not_empty', 'has_any_tag', 'has_no_tags'].includes(op);
 
+  // Manual contacts management
+  const openManualContacts = async (seg: any) => {
+    setManualSegment(seg);
+    setManualSearch('');
+    const { data } = await supabase.from('segment_contacts').select('contact_id').eq('segment_id', seg.id);
+    setManualContactIds((data || []).map((d: any) => d.contact_id));
+    setManualOpen(true);
+  };
+
+  const toggleManualContact = async (contactId: string) => {
+    if (!manualSegment) return;
+    if (manualContactIds.includes(contactId)) {
+      await supabase.from('segment_contacts').delete().eq('segment_id', manualSegment.id).eq('contact_id', contactId);
+      setManualContactIds(manualContactIds.filter(id => id !== contactId));
+    } else {
+      await supabase.from('segment_contacts').insert({ segment_id: manualSegment.id, contact_id: contactId });
+      setManualContactIds([...manualContactIds, contactId]);
+    }
+    fetchData();
+  };
+
+  const filteredContacts = contacts.filter(c =>
+    `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(manualSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
