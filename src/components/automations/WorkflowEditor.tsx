@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import {
   ReactFlow,
   Background,
@@ -45,6 +45,15 @@ export function WorkflowEditor({ initialNodes, initialEdges, onChange }: Props) 
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
+  // Sync nodes from parent (e.g. when trigger type changes in header)
+  useEffect(() => {
+    setNodes(initialNodes);
+  }, [initialNodes, setNodes]);
+
+  useEffect(() => {
+    setEdges(initialEdges);
+  }, [initialEdges, setEdges]);
+
   const onConnect = useCallback((connection: Connection) => {
     const newEdge = {
       ...connection,
@@ -59,9 +68,16 @@ export function WorkflowEditor({ initialNodes, initialEdges, onChange }: Props) 
   }, [nodes, onChange, setEdges]);
 
   const handleNodesChange = useCallback((changes: any) => {
-    onNodesChange(changes);
-    // We'll sync on drag end
-  }, [onNodesChange]);
+    // Prevent deletion of trigger nodes via keyboard
+    const filtered = changes.filter((c: any) => {
+      if (c.type === 'remove') {
+        const node = nodes.find(n => n.id === c.id);
+        if (node?.type === 'trigger') return false;
+      }
+      return true;
+    });
+    onNodesChange(filtered);
+  }, [onNodesChange, nodes]);
 
   const handleNodeDragStop = useCallback(() => {
     setNodes(nds => {
@@ -114,6 +130,10 @@ export function WorkflowEditor({ initialNodes, initialEdges, onChange }: Props) 
   }, [edges, onChange, setNodes]);
 
   const deleteNode = useCallback((id: string) => {
+    // Never delete trigger nodes
+    const node = nodes.find(n => n.id === id);
+    if (node?.type === 'trigger') return;
+
     setNodes(nds => {
       const updated = nds.filter(n => n.id !== id);
       const updatedEdges = edges.filter(e => e.source !== id && e.target !== id);
@@ -122,7 +142,7 @@ export function WorkflowEditor({ initialNodes, initialEdges, onChange }: Props) 
       return updated;
     });
     setSelectedNode(null);
-  }, [edges, onChange, setNodes, setEdges]);
+  }, [edges, onChange, setNodes, setEdges, nodes]);
 
   return (
     <div className="flex h-full">

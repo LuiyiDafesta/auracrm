@@ -61,12 +61,15 @@ export default function AutomationEditorPage() {
   const handleTriggerChange = (value: string) => {
     setTriggerType(value);
     const trigger = TRIGGER_TYPES.find(t => t.value === value);
-    // Update trigger node
-    setNodes(nds => nds.map(n =>
-      n.type === 'trigger'
-        ? { ...n, data: { ...n.data, nodeType: value, label: trigger?.label || value, config: {} } }
-        : n
-    ));
+    // Update trigger node - create new array reference so WorkflowEditor picks up the change
+    setNodes(nds => {
+      const updated = nds.map(n =>
+        n.type === 'trigger'
+          ? { ...n, data: { ...n.data, nodeType: value, label: trigger?.label || value, config: {} } }
+          : n
+      );
+      return [...updated];
+    });
     setTriggerConfig({});
   };
 

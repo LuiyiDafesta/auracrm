@@ -6,6 +6,8 @@ export const TRIGGER_TYPES = [
   { value: 'field_changed', label: 'Campo modificado', icon: '✏️' },
   { value: 'status_changed', label: 'Estado cambiado', icon: '🔄' },
   { value: 'lead_score_reached', label: 'Lead score alcanzado', icon: '⭐' },
+  { value: 'scheduled', label: 'Programado (fecha/hora)', icon: '📅' },
+  { value: 'webhook_incoming', label: 'Webhook entrante', icon: '🔗' },
 ] as const;
 
 export const ACTION_TYPES = [
@@ -18,6 +20,7 @@ export const ACTION_TYPES = [
   { value: 'update_lead_score', label: 'Modificar lead score', icon: '⭐', color: '#F97316' },
   { value: 'add_to_segment', label: 'Agregar a segmento', icon: '📋', color: '#14B8A6' },
   { value: 'remove_from_segment', label: 'Quitar de segmento', icon: '📋', color: '#DC2626' },
+  { value: 'webhook_outgoing', label: 'Enviar webhook', icon: '🔗', color: '#7C3AED' },
 ] as const;
 
 export const CONDITION_TYPES = [
@@ -37,7 +40,7 @@ export interface AutomationNode {
   position: { x: number; y: number };
   data: {
     label: string;
-    nodeType: string; // e.g., 'send_email', 'wait', 'has_tag'
+    nodeType: string;
     config: Record<string, any>;
   };
 }
