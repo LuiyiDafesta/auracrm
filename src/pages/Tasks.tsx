@@ -181,9 +181,11 @@ export default function Tasks() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {(() => {
+                const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+                return paginated.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No hay tareas</TableCell></TableRow>
-              ) : filtered.map(t => {
+              ) : paginated.map(t => {
                 const contactName = getContactName(t.contact_id);
                 return (
                   <TableRow key={t.id} className={t.status === 'completada' ? 'opacity-50' : ''}>
@@ -216,9 +218,10 @@ export default function Tasks() {
                     </TableCell>
                   </TableRow>
                 );
-              })}
+              })})()}
             </TableBody>
           </Table>
+          <TablePagination total={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={(s) => { setPageSize(s); setPage(1); }} />
         </CardContent>
       </Card>
     </div>
