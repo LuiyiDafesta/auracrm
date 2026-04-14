@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Mail } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { Database } from '@/integrations/supabase/types';
 
 type Campaign = Database['public']['Tables']['campaigns']['Row'];
@@ -26,6 +27,7 @@ const statusColors: Record<string, string> = {
 export default function Campaigns() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
@@ -134,6 +136,7 @@ export default function Campaigns() {
                   <TableCell>{c.end_date ? new Date(c.end_date).toLocaleDateString('es-ES') : '—'}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => navigate(`/email-builder/new?campaign=${c.id}`)} title="Crear email"><Mail className="h-4 w-4 text-primary" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
