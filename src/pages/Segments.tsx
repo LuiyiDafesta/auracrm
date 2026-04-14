@@ -6,9 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, Users, Filter } from 'lucide-react';
 
@@ -18,46 +16,118 @@ interface SegmentRule {
   value: string;
 }
 
-const FIELDS = [
-  { value: 'status', label: 'Estado' },
-  { value: 'position', label: 'Cargo' },
-  { value: 'email', label: 'Email' },
-  { value: 'phone', label: 'Teléfono' },
-  { value: 'first_name', label: 'Nombre' },
-  { value: 'last_name', label: 'Apellido' },
-  { value: 'tag', label: 'Etiqueta' },
+interface CustomField {
+  id: string;
+  name: string;
+  field_type: string;
+}
+
+const BASE_FIELDS = [
+  { value: 'status', label: 'Estado', type: 'text' },
+  { value: 'position', label: 'Cargo', type: 'text' },
+  { value: 'email', label: 'Email', type: 'text' },
+  { value: 'phone', label: 'Teléfono', type: 'text' },
+  { value: 'first_name', label: 'Nombre', type: 'text' },
+  { value: 'last_name', label: 'Apellido', type: 'text' },
+  { value: 'lead_score', label: 'Puntuación', type: 'number' },
+  { value: 'created_at', label: 'Fecha de creación', type: 'date' },
+  { value: 'tag', label: 'Etiqueta', type: 'tag' },
 ];
 
-const OPERATORS = [
+const TEXT_OPERATORS = [
   { value: 'equals', label: 'es igual a' },
   { value: 'not_equals', label: 'no es igual a' },
   { value: 'contains', label: 'contiene' },
   { value: 'not_contains', label: 'no contiene' },
+  { value: 'starts_with', label: 'empieza con' },
+  { value: 'ends_with', label: 'termina con' },
   { value: 'is_empty', label: 'está vacío' },
   { value: 'is_not_empty', label: 'no está vacío' },
 ];
+
+const NUMBER_OPERATORS = [
+  { value: 'equals', label: 'es igual a' },
+  { value: 'not_equals', label: 'no es igual a' },
+  { value: 'greater_than', label: 'mayor que' },
+  { value: 'less_than', label: 'menor que' },
+  { value: 'greater_or_equal', label: 'mayor o igual' },
+  { value: 'less_or_equal', label: 'menor o igual' },
+  { value: 'between', label: 'entre' },
+  { value: 'is_empty', label: 'está vacío' },
+  { value: 'is_not_empty', label: 'no está vacío' },
+];
+
+const DATE_OPERATORS = [
+  { value: 'equals', label: 'es igual a' },
+  { value: 'greater_than', label: 'después de' },
+  { value: 'less_than', label: 'antes de' },
+  { value: 'between', label: 'entre' },
+  { value: 'days_ago_less', label: 'hace menos de X días' },
+  { value: 'days_ago_more', label: 'hace más de X días' },
+  { value: 'is_empty', label: 'está vacío' },
+  { value: 'is_not_empty', label: 'no está vacío' },
+];
+
+const TAG_OPERATORS = [
+  { value: 'has_tag', label: 'tiene la etiqueta' },
+  { value: 'not_has_tag', label: 'no tiene la etiqueta' },
+  { value: 'has_any_tag', label: 'tiene alguna etiqueta' },
+  { value: 'has_no_tags', label: 'no tiene etiquetas' },
+];
+
+function getFieldType(fieldValue: string, customFields: CustomField[]): string {
+  const base = BASE_FIELDS.find(f => f.value === fieldValue);
+  if (base) return base.type;
+  const custom = customFields.find(f => `cf_${f.id}` === fieldValue);
+  if (custom) {
+    if (['number'].includes(custom.field_type)) return 'number';
+    if (['date'].includes(custom.field_type)) return 'date';
+    return 'text';
+  }
+  return 'text';
+}
+
+function getOperatorsForType(type: string) {
+  switch (type) {
+    case 'number': return NUMBER_OPERATORS;
+    case 'date': return DATE_OPERATORS;
+    case 'tag': return TAG_OPERATORS;
+    default: return TEXT_OPERATORS;
+  }
+}
 
 export default function Segments() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [segments, setSegments] = useState<any[]>([]);
   const [segmentCounts, setSegmentCounts] = useState<Record<string, number>>({});
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [tags, setTags] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState({ name: '', description: '' });
   const [rules, setRules] = useState<SegmentRule[]>([{ field: 'status', operator: 'equals', value: '' }]);
 
-  const fetchSegments = async () => {
-    if (!user) return;
-    const { data } = await supabase.from('segments').select('*').order('created_at', { ascending: false });
-    setSegments(data || []);
+  const allFields = [
+    ...BASE_FIELDS.map(f => ({ value: f.value, label: f.label })),
+    ...customFields.map(f => ({ value: `cf_${f.id}`, label: `📋 ${f.name}` })),
+  ];
 
-    // Count contacts per segment
-    if (data) {
+  const fetchData = async () => {
+    if (!user) return;
+    const [segRes, cfRes, tagRes] = await Promise.all([
+      supabase.from('segments').select('*').order('created_at', { ascending: false }),
+      supabase.from('custom_fields').select('id, name, field_type').order('sort_order'),
+      supabase.from('tags').select('*'),
+    ]);
+    setSegments(segRes.data || []);
+    setCustomFields((cfRes.data as any[]) || []);
+    setTags(tagRes.data || []);
+
+    if (segRes.data) {
       const counts: Record<string, number> = {};
-      for (const seg of data) {
-        const count = await countContactsForRules(seg.rules as unknown as SegmentRule[]);
-        counts[seg.id] = count;
+      for (const seg of segRes.data) {
+        counts[seg.id] = await countContactsForRules(seg.rules as unknown as SegmentRule[]);
       }
       setSegmentCounts(counts);
     }
@@ -65,30 +135,35 @@ export default function Segments() {
 
   const countContactsForRules = async (segRules: SegmentRule[]): Promise<number> => {
     if (!user) return 0;
-    // Build filters manually to avoid deep type instantiation
-    const filters: { column: string; op: string; value: string }[] = [];
-    for (const rule of segRules) {
-      if (rule.field === 'tag') continue;
-      filters.push({ column: rule.field, op: rule.operator, value: rule.value });
-    }
-
     let query = supabase.from('contacts').select('id', { count: 'exact', head: true }) as any;
-    for (const f of filters) {
-      switch (f.op) {
-        case 'equals': query = query.eq(f.column, f.value); break;
-        case 'not_equals': query = query.neq(f.column, f.value); break;
-        case 'contains': query = query.ilike(f.column, `%${f.value}%`); break;
-        case 'not_contains': query = query.not(f.column, 'ilike', `%${f.value}%`); break;
-        case 'is_empty': query = query.is(f.column, null); break;
-        case 'is_not_empty': query = query.not(f.column, 'is', null); break;
-      }
+    for (const rule of segRules) {
+      if (rule.field === 'tag' || rule.field.startsWith('cf_')) continue;
+      query = applyFilter(query, rule);
     }
-
     const { count } = await query;
     return count || 0;
   };
 
-  useEffect(() => { fetchSegments(); }, [user]);
+  const applyFilter = (query: any, rule: SegmentRule) => {
+    const { field, operator, value } = rule;
+    switch (operator) {
+      case 'equals': return query.eq(field, value);
+      case 'not_equals': return query.neq(field, value);
+      case 'contains': return query.ilike(field, `%${value}%`);
+      case 'not_contains': return query.not(field, 'ilike', `%${value}%`);
+      case 'starts_with': return query.ilike(field, `${value}%`);
+      case 'ends_with': return query.ilike(field, `%${value}`);
+      case 'greater_than': return query.gt(field, value);
+      case 'less_than': return query.lt(field, value);
+      case 'greater_or_equal': return query.gte(field, value);
+      case 'less_or_equal': return query.lte(field, value);
+      case 'is_empty': return query.is(field, null);
+      case 'is_not_empty': return query.not(field, 'is', null);
+      default: return query;
+    }
+  };
+
+  useEffect(() => { fetchData(); }, [user]);
 
   const handleSave = async () => {
     if (!user || !form.name.trim()) return;
@@ -102,13 +177,13 @@ export default function Segments() {
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: editing ? 'Segmento actualizado' : 'Segmento creado' });
     resetForm();
-    fetchSegments();
+    fetchData();
   };
 
   const handleDelete = async (id: string) => {
     await supabase.from('segments').delete().eq('id', id);
     toast({ title: 'Segmento eliminado' });
-    fetchSegments();
+    fetchData();
   };
 
   const openEdit = (s: any) => {
@@ -129,28 +204,43 @@ export default function Segments() {
   const removeRule = (i: number) => setRules(rules.filter((_, idx) => idx !== i));
   const updateRule = (i: number, key: keyof SegmentRule, val: string) => {
     const updated = [...rules];
-    updated[i] = { ...updated[i], [key]: val };
+    if (key === 'field') {
+      const type = getFieldType(val, customFields);
+      const ops = getOperatorsForType(type);
+      updated[i] = { field: val, operator: ops[0].value, value: '' };
+    } else {
+      updated[i] = { ...updated[i], [key]: val };
+    }
     setRules(updated);
   };
+
+  const getOperatorLabel = (op: string) => {
+    const all = [...TEXT_OPERATORS, ...NUMBER_OPERATORS, ...DATE_OPERATORS, ...TAG_OPERATORS];
+    return all.find(o => o.value === op)?.label || op;
+  };
+
+  const getFieldLabel = (f: string) => allFields.find(af => af.value === f)?.label || f;
+
+  const needsValueInput = (op: string) => !['is_empty', 'is_not_empty', 'has_any_tag', 'has_no_tags'].includes(op);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Segmentos</h1>
-          <p className="text-muted-foreground">Agrupa contactos con filtros inteligentes</p>
+          <p className="text-muted-foreground">Filtra contactos con reglas avanzadas</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); else setOpen(true); }}>
+        <Dialog open={open} onOpenChange={v => { if (!v) resetForm(); else setOpen(true); }}>
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" />Nuevo Segmento</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editing ? 'Editar Segmento' : 'Nuevo Segmento'}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Nombre *</label>
-                  <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Clientes VIP" />
+                  <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Leads calientes" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Descripción</label>
@@ -163,25 +253,44 @@ export default function Segments() {
                   <label className="text-sm font-medium flex items-center gap-2"><Filter className="h-4 w-4" />Reglas de filtrado</label>
                   <Button variant="outline" size="sm" onClick={addRule}><Plus className="h-3 w-3 mr-1" />Agregar regla</Button>
                 </div>
-                {rules.map((rule, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-muted/50 p-3 rounded-lg">
-                    {i > 0 && <Badge variant="secondary" className="text-xs shrink-0">Y</Badge>}
-                    <Select value={rule.field} onValueChange={v => updateRule(i, 'field', v)}>
-                      <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                      <SelectContent>{FIELDS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <Select value={rule.operator} onValueChange={v => updateRule(i, 'operator', v)}>
-                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                      <SelectContent>{OPERATORS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                    {!['is_empty', 'is_not_empty'].includes(rule.operator) && (
-                      <Input className="flex-1" value={rule.value} onChange={e => updateRule(i, 'value', e.target.value)} placeholder="Valor..." />
-                    )}
-                    {rules.length > 1 && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeRule(i)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-                    )}
-                  </div>
-                ))}
+                {rules.map((rule, i) => {
+                  const fieldType = getFieldType(rule.field, customFields);
+                  const operators = getOperatorsForType(fieldType);
+                  return (
+                    <div key={i} className="bg-muted/50 p-3 rounded-lg space-y-2">
+                      {i > 0 && <Badge variant="secondary" className="text-xs mb-1">Y</Badge>}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Select value={rule.field} onValueChange={v => updateRule(i, 'field', v)}>
+                          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                          <SelectContent>{allFields.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <Select value={rule.operator} onValueChange={v => updateRule(i, 'operator', v)}>
+                          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                          <SelectContent>{operators.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                        {needsValueInput(rule.operator) && (
+                          fieldType === 'tag' ? (
+                            <Select value={rule.value} onValueChange={v => updateRule(i, 'value', v)}>
+                              <SelectTrigger className="flex-1 min-w-[120px]"><SelectValue placeholder="Seleccionar etiqueta" /></SelectTrigger>
+                              <SelectContent>{tags.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                          ) : fieldType === 'date' ? (
+                            <Input type="date" className="flex-1 min-w-[120px]" value={rule.value} onChange={e => updateRule(i, 'value', e.target.value)} />
+                          ) : fieldType === 'number' ? (
+                            <Input type="number" className="flex-1 min-w-[80px]" value={rule.value} onChange={e => updateRule(i, 'value', e.target.value)} placeholder="Valor" />
+                          ) : (
+                            <Input className="flex-1 min-w-[120px]" value={rule.value} onChange={e => updateRule(i, 'value', e.target.value)} placeholder="Valor..." />
+                          )
+                        )}
+                        {rules.length > 1 && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeRule(i)}>
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <Button onClick={handleSave} className="w-full">{editing ? 'Guardar cambios' : 'Crear segmento'}</Button>
@@ -220,8 +329,8 @@ export default function Segments() {
                 {(s.rules as SegmentRule[]).map((r, i) => (
                   <div key={i} className="text-xs bg-muted/50 rounded px-2 py-1">
                     {i > 0 && <span className="font-medium mr-1">Y</span>}
-                    <span className="font-medium">{FIELDS.find(f => f.value === r.field)?.label}</span>{' '}
-                    <span className="text-muted-foreground">{OPERATORS.find(o => o.value === r.operator)?.label}</span>{' '}
+                    <span className="font-medium">{getFieldLabel(r.field)}</span>{' '}
+                    <span className="text-muted-foreground">{getOperatorLabel(r.operator)}</span>{' '}
                     {r.value && <span className="font-medium">"{r.value}"</span>}
                   </div>
                 ))}
