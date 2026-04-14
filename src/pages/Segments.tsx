@@ -350,14 +350,8 @@ export default function Segments() {
     setViewLoading(true);
     setViewOpen(true);
 
-    // Fetch contacts matching rules
-    const segRules = (seg.rules || []) as SegmentRule[];
-    let query = supabase.from('contacts').select('id, first_name, last_name, email, lead_score, status') as any;
-    for (const rule of segRules) {
-      if (rule.field === 'tag' || rule.field.startsWith('cf_')) continue;
-      query = applyFilter(query, rule);
-    }
-    const { data: ruleContacts } = await query;
+    // Fetch contacts matching rules (using shared helper)
+    const ruleContacts = await getContactsForRules((seg.rules || []) as SegmentRule[]);
 
     // Fetch manually added contacts
     const { data: manualRows } = await supabase.from('segment_contacts').select('contact_id').eq('segment_id', seg.id);
@@ -370,7 +364,7 @@ export default function Segments() {
 
     // Merge and deduplicate
     const allMap = new Map<string, any>();
-    (ruleContacts || []).forEach((c: any) => allMap.set(c.id, { ...c, source: 'regla' }));
+    ruleContacts.forEach((c: any) => allMap.set(c.id, { ...c, source: 'regla' }));
     manualContacts.forEach(c => {
       if (allMap.has(c.id)) {
         allMap.set(c.id, { ...allMap.get(c.id), source: 'ambos' });
