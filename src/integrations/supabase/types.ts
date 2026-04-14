@@ -418,6 +418,42 @@ export type Database = {
         }
         Relationships: []
       }
+      segment_contacts: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          segment_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          segment_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          segment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "segment_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "segment_contacts_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       segments: {
         Row: {
           created_at: string
