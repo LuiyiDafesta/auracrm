@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { TagManager } from '@/components/TagManager';
 import type { Database } from '@/integrations/supabase/types';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
@@ -148,23 +149,21 @@ export default function Contacts() {
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Teléfono</TableHead>
                 <TableHead>Empresa</TableHead>
-                <TableHead>Cargo</TableHead>
+                <TableHead>Etiquetas</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No hay contactos</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No hay contactos</TableCell></TableRow>
               ) : filtered.map(c => (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.first_name} {c.last_name}</TableCell>
                   <TableCell>{c.email || '—'}</TableCell>
-                  <TableCell>{c.phone || '—'}</TableCell>
                   <TableCell>{getCompanyName(c.company_id)}</TableCell>
-                  <TableCell>{c.position || '—'}</TableCell>
+                  <TableCell><TagManager contactId={c.id} /></TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${c.status === 'activo' ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
                       {c.status}
