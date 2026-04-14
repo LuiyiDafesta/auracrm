@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Users, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Filter, UserPlus, X, Search } from 'lucide-react';
 
 interface SegmentRule {
   field: string;
@@ -101,12 +103,19 @@ export default function Segments() {
   const { toast } = useToast();
   const [segments, setSegments] = useState<any[]>([]);
   const [segmentCounts, setSegmentCounts] = useState<Record<string, number>>({});
+  const [manualCounts, setManualCounts] = useState<Record<string, number>>({});
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [tags, setTags] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState({ name: '', description: '' });
   const [rules, setRules] = useState<SegmentRule[]>([{ field: 'status', operator: 'equals', value: '' }]);
+  // Manual contacts dialog
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualSegment, setManualSegment] = useState<any>(null);
+  const [manualContactIds, setManualContactIds] = useState<string[]>([]);
+  const [manualSearch, setManualSearch] = useState('');
 
   const allFields = [
     ...BASE_FIELDS.map(f => ({ value: f.value, label: f.label })),
@@ -115,21 +124,27 @@ export default function Segments() {
 
   const fetchData = async () => {
     if (!user) return;
-    const [segRes, cfRes, tagRes] = await Promise.all([
+    const [segRes, cfRes, tagRes, contactsRes] = await Promise.all([
       supabase.from('segments').select('*').order('created_at', { ascending: false }),
       supabase.from('custom_fields').select('id, name, field_type').order('sort_order'),
       supabase.from('tags').select('*'),
+      supabase.from('contacts').select('id, first_name, last_name, email').order('first_name'),
     ]);
     setSegments(segRes.data || []);
     setCustomFields((cfRes.data as any[]) || []);
     setTags(tagRes.data || []);
+    setContacts(contactsRes.data || []);
 
     if (segRes.data) {
       const counts: Record<string, number> = {};
+      const mCounts: Record<string, number> = {};
       for (const seg of segRes.data) {
         counts[seg.id] = await countContactsForRules(seg.rules as unknown as SegmentRule[]);
+        const { count } = await supabase.from('segment_contacts').select('id', { count: 'exact', head: true }).eq('segment_id', seg.id);
+        mCounts[seg.id] = count || 0;
       }
       setSegmentCounts(counts);
+      setManualCounts(mCounts);
     }
   };
 
@@ -223,6 +238,31 @@ export default function Segments() {
 
   const needsValueInput = (op: string) => !['is_empty', 'is_not_empty', 'has_any_tag', 'has_no_tags'].includes(op);
 
+  // Manual contacts management
+  const openManualContacts = async (seg: any) => {
+    setManualSegment(seg);
+    setManualSearch('');
+    const { data } = await supabase.from('segment_contacts').select('contact_id').eq('segment_id', seg.id);
+    setManualContactIds((data || []).map((d: any) => d.contact_id));
+    setManualOpen(true);
+  };
+
+  const toggleManualContact = async (contactId: string) => {
+    if (!manualSegment) return;
+    if (manualContactIds.includes(contactId)) {
+      await supabase.from('segment_contacts').delete().eq('segment_id', manualSegment.id).eq('contact_id', contactId);
+      setManualContactIds(manualContactIds.filter(id => id !== contactId));
+    } else {
+      await supabase.from('segment_contacts').insert({ segment_id: manualSegment.id, contact_id: contactId });
+      setManualContactIds([...manualContactIds, contactId]);
+    }
+    fetchData();
+  };
+
+  const filteredContacts = contacts.filter(c =>
+    `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(manualSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -315,15 +355,18 @@ export default function Segments() {
                   {s.description && <p className="text-xs text-muted-foreground mt-1">{s.description}</p>}
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openManualContacts(s)} title="Agregar contactos manualmente"><UserPlus className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Pencil className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(s.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                <Users className="h-4 w-4" />
-                <span>{segmentCounts[s.id] ?? '...'} contactos</span>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                <span className="flex items-center gap-1"><Filter className="h-3 w-3" />{segmentCounts[s.id] ?? '...'} por reglas</span>
+                {(manualCounts[s.id] || 0) > 0 && (
+                  <span className="flex items-center gap-1"><UserPlus className="h-3 w-3" />{manualCounts[s.id]} manuales</span>
+                )}
               </div>
               <div className="space-y-1">
                 {(s.rules as SegmentRule[]).map((r, i) => (
@@ -339,6 +382,44 @@ export default function Segments() {
           </Card>
         ))}
       </div>
+
+      {/* Manual contacts dialog */}
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Contactos manuales — {manualSegment?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-9" placeholder="Buscar contactos..." value={manualSearch} onChange={e => setManualSearch(e.target.value)} />
+            </div>
+            <p className="text-xs text-muted-foreground">{manualContactIds.length} contactos agregados manualmente</p>
+            <ScrollArea className="h-[340px] border rounded-md">
+              <div className="p-2 space-y-1">
+                {filteredContacts.map(c => (
+                  <label key={c.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted/50 cursor-pointer">
+                    <Checkbox
+                      checked={manualContactIds.includes(c.id)}
+                      onCheckedChange={() => toggleManualContact(c.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{c.first_name} {c.last_name}</p>
+                      {c.email && <p className="text-xs text-muted-foreground truncate">{c.email}</p>}
+                    </div>
+                    {manualContactIds.includes(c.id) && (
+                      <Badge variant="secondary" className="text-xs shrink-0">Incluido</Badge>
+                    )}
+                  </label>
+                ))}
+                {filteredContacts.length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground py-4">No hay contactos</p>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

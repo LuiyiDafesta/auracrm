@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { TagManager } from '@/components/TagManager';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, Camera, Star, Mail, Phone, Briefcase, Building2,
+  ArrowLeft, Camera, Mail, Phone, Briefcase, Building2,
   Calendar, Globe, ChevronDown, ChevronUp, Save, Pencil, EyeOff,
 } from 'lucide-react';
 
@@ -113,17 +113,30 @@ export default function ContactDetail() {
     fetchAll();
   };
 
-  const renderScoreStars = () => {
-    const stars = [1, 2, 3, 4, 5];
+  const renderScore = () => {
+    const color = leadScore >= 80 ? 'text-green-500' : leadScore >= 50 ? 'text-yellow-500' : leadScore >= 20 ? 'text-orange-500' : 'text-muted-foreground';
     return (
-      <div className="flex gap-1">
-        {stars.map(s => (
-          <button key={s} onClick={() => { if (editMode) setLeadScore(s * 20); }}
-            className={`transition-colors ${editMode ? 'cursor-pointer' : 'cursor-default'}`}>
-            <Star className={`h-5 w-5 ${(leadScore / 20) >= s ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30'}`} />
-          </button>
-        ))}
-        <span className="text-sm text-muted-foreground ml-2">{leadScore} pts</span>
+      <div className="flex items-center gap-2">
+        {editMode ? (
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              value={leadScore}
+              onChange={e => setLeadScore(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))}
+              className="w-20 h-8 text-sm"
+            />
+            <span className="text-xs text-muted-foreground">/ 100</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${leadScore >= 80 ? 'bg-green-500' : leadScore >= 50 ? 'bg-yellow-500' : leadScore >= 20 ? 'bg-orange-500' : 'bg-muted-foreground/50'}`} style={{ width: `${leadScore}%` }} />
+            </div>
+            <span className={`text-sm font-semibold ${color}`}>{leadScore}</span>
+          </div>
+        )}
       </div>
     );
   };
@@ -229,7 +242,7 @@ export default function ContactDetail() {
 
               {/* Lead score & status */}
               <div className="flex items-center gap-4 flex-wrap">
-                {renderScoreStars()}
+                {renderScore()}
                 {editMode ? (
                   <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
                     <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
