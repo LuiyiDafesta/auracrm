@@ -403,6 +403,7 @@ export default function Segments() {
                   {s.description && <p className="text-xs text-muted-foreground mt-1">{s.description}</p>}
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openViewContacts(s)} title="Ver contactos"><Eye className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openManualContacts(s)} title="Agregar contactos manualmente"><UserPlus className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Pencil className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(s.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
