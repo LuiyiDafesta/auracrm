@@ -28,6 +28,13 @@ export default function EmailBuilderPage() {
   const [blocks, setBlocks] = useState<EmailBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [canvasSettings, setCanvasSettings] = useState({
+    bgColor: '#f4f4f5',
+    contentBgColor: '#ffffff',
+    contentPadding: '16',
+    contentBorderRadius: '8',
+  });
+  const [canvasSelected, setCanvasSelected] = useState(false);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [showPreview, setShowPreview] = useState(false);
   const [showCode, setShowCode] = useState(false);
@@ -75,6 +82,7 @@ export default function EmailBuilderPage() {
     setBlocks((prev) => [...prev, newBlock]);
     setSelectedBlockId(newBlock.id);
     setSelectedChildId(null);
+    setCanvasSelected(false);
   }, []);
 
   const updateBlockProps = useCallback((blockId: string, props: Record<string, any>) => {
@@ -223,13 +231,21 @@ export default function EmailBuilderPage() {
         </div>
 
         {/* Center: Canvas */}
-        <div className="flex-1 overflow-auto bg-muted/50 p-6" onClick={() => { setSelectedBlockId(null); setSelectedChildId(null); }}>
+        <div
+          className="flex-1 overflow-auto p-6"
+          style={{ backgroundColor: canvasSettings.bgColor }}
+          onClick={() => { setSelectedBlockId(null); setSelectedChildId(null); setCanvasSelected(true); }}
+        >
           <div
-            className="mx-auto bg-white rounded-lg shadow-sm min-h-[400px] transition-all"
-            style={{ maxWidth: previewWidth }}
+            className={`mx-auto min-h-[400px] transition-all border-2 ${canvasSelected && !selectedBlockId ? 'border-primary shadow-md' : 'border-transparent'}`}
+            style={{
+              maxWidth: previewWidth,
+              backgroundColor: canvasSettings.contentBgColor,
+              borderRadius: `${canvasSettings.contentBorderRadius}px`,
+            }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleCanvasDrop}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setSelectedBlockId(null); setSelectedChildId(null); setCanvasSelected(true); }}
           >
             {blocks.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-muted-foreground text-sm gap-2">
@@ -237,13 +253,13 @@ export default function EmailBuilderPage() {
                 <p className="text-xs">o haz clic en un bloque del panel izquierdo</p>
               </div>
             ) : (
-              <div className="p-4 space-y-1">
+              <div style={{ padding: `${canvasSettings.contentPadding}px` }} className="space-y-1">
                 {blocks.map((block, idx) => (
                   <BlockRenderer
                     key={block.id}
                     block={block}
                     selected={block.id === selectedBlockId}
-                    onSelect={() => { setSelectedBlockId(block.id); setSelectedChildId(null); }}
+                    onSelect={() => { setSelectedBlockId(block.id); setSelectedChildId(null); setCanvasSelected(false); }}
                     onDelete={() => deleteBlock(block.id)}
                     onDuplicate={() => duplicateBlock(block.id)}
                     onUpdateProps={(props) => updateBlockProps(block.id, props)}
@@ -253,7 +269,7 @@ export default function EmailBuilderPage() {
                     onAddChildBlock={(colIdx, type) => addChildBlock(block.id, colIdx, type)}
                     onUpdateChildProps={(colIdx, childId, props) => updateChildProps(block.id, colIdx, childId, props)}
                     onDeleteChild={(colIdx, childId) => deleteChild(block.id, colIdx, childId)}
-                    onSelectChild={(childId) => { setSelectedBlockId(block.id); setSelectedChildId(childId); }}
+                    onSelectChild={(childId) => { setSelectedBlockId(block.id); setSelectedChildId(childId); setCanvasSelected(false); }}
                     selectedChildId={selectedChildId}
                   />
                 ))}
@@ -265,7 +281,13 @@ export default function EmailBuilderPage() {
         {/* Right: Properties */}
         <div className="w-64 border-l bg-card shrink-0">
           <ScrollArea className="h-full p-3">
-            <PropertiesPanel block={selectedBlock} onUpdate={updateBlockProps} />
+            <PropertiesPanel
+              block={selectedBlock}
+              onUpdate={updateBlockProps}
+              canvasSelected={canvasSelected && !selectedBlockId}
+              canvasSettings={canvasSettings}
+              onUpdateCanvas={setCanvasSettings}
+            />
           </ScrollArea>
         </div>
       </div>
