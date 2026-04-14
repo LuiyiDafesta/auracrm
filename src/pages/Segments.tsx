@@ -124,21 +124,27 @@ export default function Segments() {
 
   const fetchData = async () => {
     if (!user) return;
-    const [segRes, cfRes, tagRes] = await Promise.all([
+    const [segRes, cfRes, tagRes, contactsRes] = await Promise.all([
       supabase.from('segments').select('*').order('created_at', { ascending: false }),
       supabase.from('custom_fields').select('id, name, field_type').order('sort_order'),
       supabase.from('tags').select('*'),
+      supabase.from('contacts').select('id, first_name, last_name, email').order('first_name'),
     ]);
     setSegments(segRes.data || []);
     setCustomFields((cfRes.data as any[]) || []);
     setTags(tagRes.data || []);
+    setContacts(contactsRes.data || []);
 
     if (segRes.data) {
       const counts: Record<string, number> = {};
+      const mCounts: Record<string, number> = {};
       for (const seg of segRes.data) {
         counts[seg.id] = await countContactsForRules(seg.rules as unknown as SegmentRule[]);
+        const { count } = await supabase.from('segment_contacts').select('id', { count: 'exact', head: true }).eq('segment_id', seg.id);
+        mCounts[seg.id] = count || 0;
       }
       setSegmentCounts(counts);
+      setManualCounts(mCounts);
     }
   };
 
