@@ -65,17 +65,22 @@ export default function Segments() {
 
   const countContactsForRules = async (segRules: SegmentRule[]): Promise<number> => {
     if (!user) return 0;
-    let query = supabase.from('contacts').select('id', { count: 'exact', head: true });
-
+    // Build filters manually to avoid deep type instantiation
+    const filters: { column: string; op: string; value: string }[] = [];
     for (const rule of segRules) {
-      if (rule.field === 'tag') continue; // Tags need a separate query
-      switch (rule.operator) {
-        case 'equals': query = query.eq(rule.field, rule.value); break;
-        case 'not_equals': query = query.neq(rule.field, rule.value); break;
-        case 'contains': query = query.ilike(rule.field, `%${rule.value}%`); break;
-        case 'not_contains': query = query.not(rule.field, 'ilike', `%${rule.value}%`); break;
-        case 'is_empty': query = query.is(rule.field, null); break;
-        case 'is_not_empty': query = query.not(rule.field, 'is', null); break;
+      if (rule.field === 'tag') continue;
+      filters.push({ column: rule.field, op: rule.operator, value: rule.value });
+    }
+
+    let query = supabase.from('contacts').select('id', { count: 'exact', head: true }) as any;
+    for (const f of filters) {
+      switch (f.op) {
+        case 'equals': query = query.eq(f.column, f.value); break;
+        case 'not_equals': query = query.neq(f.column, f.value); break;
+        case 'contains': query = query.ilike(f.column, `%${f.value}%`); break;
+        case 'not_contains': query = query.not(f.column, 'ilike', `%${f.value}%`); break;
+        case 'is_empty': query = query.is(f.column, null); break;
+        case 'is_not_empty': query = query.not(f.column, 'is', null); break;
       }
     }
 
