@@ -27,26 +27,36 @@ export default function EmailBuilderPage() {
   const [subject, setSubject] = useState('');
   const [blocks, setBlocks] = useState<EmailBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [showPreview, setShowPreview] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  const selectedBlock = blocks.find((b) => b.id === selectedBlockId) || null;
+  // Find the selected block — could be top-level or a child inside columns
+  const getSelectedBlock = (): EmailBlock | null => {
+    if (selectedChildId) {
+      for (const b of blocks) {
+        if (b.type === 'columns' && b.props.children) {
+          for (const col of b.props.children) {
+            const found = (col as EmailBlock[]).find((c: EmailBlock) => c.id === selectedChildId);
+            if (found) return found;
+          }
+        }
+      }
+    }
+    return blocks.find((b) => b.id === selectedBlockId) || null;
+  };
+
+  const selectedBlock = getSelectedBlock();
 
   useEffect(() => {
-    if (id && id !== 'new') {
-      loadTemplate(id);
-    }
+    if (id && id !== 'new') loadTemplate(id);
   }, [id]);
 
   const loadTemplate = async (templateId: string) => {
-    const { data } = await supabase
-      .from('email_templates')
-      .select('*')
-      .eq('id', templateId)
-      .single();
+    const { data } = await supabase.from('email_templates').select('*').eq('id', templateId).single();
     if (data) {
       setName(data.name);
       setSubject(data.subject);
@@ -58,31 +68,84 @@ export default function EmailBuilderPage() {
     const newBlock: EmailBlock = {
       id: crypto.randomUUID(),
       type,
-      props: { ...defaultBlockProps[type] },
+      props: type === 'columns'
+        ? { ...defaultBlockProps[type], children: [[], []] }
+        : { ...defaultBlockProps[type] },
     };
     setBlocks((prev) => [...prev, newBlock]);
     setSelectedBlockId(newBlock.id);
+    setSelectedChildId(null);
   }, []);
 
   const updateBlockProps = useCallback((blockId: string, props: Record<string, any>) => {
-    setBlocks((prev) => prev.map((b) => (b.id === blockId ? { ...b, props } : b)));
+    // Check if it's a child block
+    setBlocks((prev) => prev.map((b) => {
+      if (b.id === blockId) return { ...b, props };
+      if (b.type === 'columns' && b.props.children) {
+        const newChildren = (b.props.children as EmailBlock[][]).map((col) =>
+          col.map((child) => child.id === blockId ? { ...child, props } : child)
+        );
+        const changed = newChildren.some((col, i) => col !== (b.props.children as EmailBlock[][])[i]);
+        if (changed) return { ...b, props: { ...b.props, children: newChildren } };
+      }
+      return b;
+    }));
   }, []);
 
   const deleteBlock = useCallback((blockId: string) => {
     setBlocks((prev) => prev.filter((b) => b.id !== blockId));
-    if (selectedBlockId === blockId) setSelectedBlockId(null);
+    if (selectedBlockId === blockId) { setSelectedBlockId(null); setSelectedChildId(null); }
   }, [selectedBlockId]);
 
   const duplicateBlock = useCallback((blockId: string) => {
     setBlocks((prev) => {
       const idx = prev.findIndex((b) => b.id === blockId);
       if (idx === -1) return prev;
-      const dup = { ...prev[idx], id: crypto.randomUUID(), props: { ...prev[idx].props } };
+      const orig = prev[idx];
+      const dup: EmailBlock = {
+        ...orig,
+        id: crypto.randomUUID(),
+        props: { ...orig.props, ...(orig.type === 'columns' ? { children: (orig.props.children || []).map((col: EmailBlock[]) => col.map((c) => ({ ...c, id: crypto.randomUUID(), props: { ...c.props } }))) } : {}) },
+      };
       const next = [...prev];
       next.splice(idx + 1, 0, dup);
       return next;
     });
   }, []);
+
+  const addChildBlock = useCallback((parentId: string, colIdx: number, type: BlockType) => {
+    if (type === 'columns') return; // no nested columns
+    const child: EmailBlock = { id: crypto.randomUUID(), type, props: { ...defaultBlockProps[type] } };
+    setBlocks((prev) => prev.map((b) => {
+      if (b.id !== parentId) return b;
+      const children = [...(b.props.children || [])];
+      children[colIdx] = [...(children[colIdx] || []), child];
+      return { ...b, props: { ...b.props, children } };
+    }));
+    setSelectedChildId(child.id);
+    setSelectedBlockId(parentId);
+  }, []);
+
+  const updateChildProps = useCallback((parentId: string, colIdx: number, childId: string, props: Record<string, any>) => {
+    setBlocks((prev) => prev.map((b) => {
+      if (b.id !== parentId) return b;
+      const children = (b.props.children as EmailBlock[][]).map((col, i) =>
+        i === colIdx ? col.map((c) => c.id === childId ? { ...c, props } : c) : col
+      );
+      return { ...b, props: { ...b.props, children } };
+    }));
+  }, []);
+
+  const deleteChild = useCallback((parentId: string, colIdx: number, childId: string) => {
+    setBlocks((prev) => prev.map((b) => {
+      if (b.id !== parentId) return b;
+      const children = (b.props.children as EmailBlock[][]).map((col, i) =>
+        i === colIdx ? col.filter((c) => c.id !== childId) : col
+      );
+      return { ...b, props: { ...b.props, children } };
+    }));
+    if (selectedChildId === childId) setSelectedChildId(null);
+  }, [selectedChildId]);
 
   const handleCanvasDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -105,14 +168,12 @@ export default function EmailBuilderPage() {
     setSaving(true);
     const html = blocksToHtml(blocks);
     const payload = {
-      name,
-      subject,
+      name, subject,
       blocks: blocks as unknown as Record<string, any>[],
       html_content: html,
       user_id: user.id,
       campaign_id: campaignId || null,
     };
-
     let error;
     if (id && id !== 'new') {
       ({ error } = await supabase.from('email_templates').update(payload).eq('id', id));
@@ -162,12 +223,13 @@ export default function EmailBuilderPage() {
         </div>
 
         {/* Center: Canvas */}
-        <div className="flex-1 overflow-auto bg-muted/50 p-6">
+        <div className="flex-1 overflow-auto bg-muted/50 p-6" onClick={() => { setSelectedBlockId(null); setSelectedChildId(null); }}>
           <div
             className="mx-auto bg-white rounded-lg shadow-sm min-h-[400px] transition-all"
             style={{ maxWidth: previewWidth }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleCanvasDrop}
+            onClick={(e) => e.stopPropagation()}
           >
             {blocks.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-muted-foreground text-sm gap-2">
@@ -181,12 +243,18 @@ export default function EmailBuilderPage() {
                     key={block.id}
                     block={block}
                     selected={block.id === selectedBlockId}
-                    onSelect={() => setSelectedBlockId(block.id)}
+                    onSelect={() => { setSelectedBlockId(block.id); setSelectedChildId(null); }}
                     onDelete={() => deleteBlock(block.id)}
                     onDuplicate={() => duplicateBlock(block.id)}
+                    onUpdateProps={(props) => updateBlockProps(block.id, props)}
                     onDragStart={() => setDragIdx(idx)}
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    onDrop={() => { if (dragIdx !== null) reorder(dragIdx, idx); setDragIdx(null); }}
+                    onDrop={(e) => { e.stopPropagation(); if (dragIdx !== null) reorder(dragIdx, idx); setDragIdx(null); }}
+                    onAddChildBlock={(colIdx, type) => addChildBlock(block.id, colIdx, type)}
+                    onUpdateChildProps={(colIdx, childId, props) => updateChildProps(block.id, colIdx, childId, props)}
+                    onDeleteChild={(colIdx, childId) => deleteChild(block.id, colIdx, childId)}
+                    onSelectChild={(childId) => { setSelectedBlockId(block.id); setSelectedChildId(childId); }}
+                    selectedChildId={selectedChildId}
                   />
                 ))}
               </div>

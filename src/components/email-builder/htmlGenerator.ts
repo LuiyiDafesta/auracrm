@@ -28,8 +28,10 @@ function blockToHtml(block: EmailBlock): string {
       return `<div style="padding:${p.padding}px"><hr style="border:0;border-top:${p.thickness}px solid ${p.color}"></div>`;
     case 'spacer':
       return `<div style="height:${p.height}px"></div>`;
-    case 'columns':
-      return `<div style="display:flex;gap:${p.gap}px;padding:${p.padding}px">${Array.from({ length: p.columns }).map(() => '<div style="flex:1"></div>').join('')}</div>`;
+    case 'columns': {
+      const children: EmailBlock[][] = p.children || [];
+      return `<div style="display:flex;gap:${p.gap}px;padding:${p.padding}px">${Array.from({ length: p.columns }).map((_, i) => `<div style="flex:1">${(children[i] || []).map(blockToHtml).join('')}</div>`).join('')}</div>`;
+    }
     case 'social':
       return `<div style="text-align:${p.align};padding:${p.padding}px">${(p.networks || []).map((n: string) => `<span style="display:inline-block;width:${p.iconSize}px;height:${p.iconSize}px;border-radius:50%;background:#CBD5E1;margin:0 4px;text-align:center;line-height:${p.iconSize}px;font-size:12px;font-weight:bold">${n[0].toUpperCase()}</span>`).join('')}</div>`;
     default:
