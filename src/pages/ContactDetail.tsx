@@ -15,7 +15,7 @@ import { TagManager } from '@/components/TagManager';
 import { useToast } from '@/hooks/use-toast';
 import {
   ArrowLeft, Camera, Star, Mail, Phone, Briefcase, Building2,
-  Calendar, Globe, ChevronDown, ChevronUp, Save, Pencil,
+  Calendar, Globe, ChevronDown, ChevronUp, Save, Pencil, EyeOff,
 } from 'lucide-react';
 
 interface CustomField {
