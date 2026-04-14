@@ -382,6 +382,44 @@ export default function Segments() {
           </Card>
         ))}
       </div>
+
+      {/* Manual contacts dialog */}
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Contactos manuales — {manualSegment?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-9" placeholder="Buscar contactos..." value={manualSearch} onChange={e => setManualSearch(e.target.value)} />
+            </div>
+            <p className="text-xs text-muted-foreground">{manualContactIds.length} contactos agregados manualmente</p>
+            <ScrollArea className="h-[340px] border rounded-md">
+              <div className="p-2 space-y-1">
+                {filteredContacts.map(c => (
+                  <label key={c.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted/50 cursor-pointer">
+                    <Checkbox
+                      checked={manualContactIds.includes(c.id)}
+                      onCheckedChange={() => toggleManualContact(c.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{c.first_name} {c.last_name}</p>
+                      {c.email && <p className="text-xs text-muted-foreground truncate">{c.email}</p>}
+                    </div>
+                    {manualContactIds.includes(c.id) && (
+                      <Badge variant="secondary" className="text-xs shrink-0">Incluido</Badge>
+                    )}
+                  </label>
+                ))}
+                {filteredContacts.length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground py-4">No hay contactos</p>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
