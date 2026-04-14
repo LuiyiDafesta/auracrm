@@ -355,15 +355,18 @@ export default function Segments() {
                   {s.description && <p className="text-xs text-muted-foreground mt-1">{s.description}</p>}
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openManualContacts(s)} title="Agregar contactos manualmente"><UserPlus className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Pencil className="h-3 w-3" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(s.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                <Users className="h-4 w-4" />
-                <span>{segmentCounts[s.id] ?? '...'} contactos</span>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                <span className="flex items-center gap-1"><Filter className="h-3 w-3" />{segmentCounts[s.id] ?? '...'} por reglas</span>
+                {(manualCounts[s.id] || 0) > 0 && (
+                  <span className="flex items-center gap-1"><UserPlus className="h-3 w-3" />{manualCounts[s.id]} manuales</span>
+                )}
               </div>
               <div className="space-y-1">
                 {(s.rules as SegmentRule[]).map((r, i) => (
