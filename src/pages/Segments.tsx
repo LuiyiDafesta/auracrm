@@ -56,7 +56,7 @@ export default function Segments() {
     if (data) {
       const counts: Record<string, number> = {};
       for (const seg of data) {
-        const count = await countContactsForRules(seg.rules as SegmentRule[]);
+        const count = await countContactsForRules(seg.rules as unknown as SegmentRule[]);
         counts[seg.id] = count;
       }
       setSegmentCounts(counts);
