@@ -15,6 +15,8 @@ import CalendarPage from "./pages/CalendarPage";
 import Campaigns from "./pages/Campaigns";
 import Reports from "./pages/Reports";
 import SettingsPage from "./pages/SettingsPage";
+import TagsPage from "./pages/TagsPage";
+import Segments from "./pages/Segments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +53,8 @@ const App = () => (
             <Route path="/campanas" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
             <Route path="/reportes" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/configuracion" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+            <Route path="/etiquetas" element={<ProtectedRoute><TagsPage /></ProtectedRoute>} />
+            <Route path="/segmentos" element={<ProtectedRoute><Segments /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
