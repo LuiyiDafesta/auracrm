@@ -154,15 +154,90 @@ export default function Segments() {
     }
   };
 
-  const countContactsForRules = async (segRules: SegmentRule[]): Promise<number> => {
-    if (!user) return 0;
-    let query = supabase.from('contacts').select('id', { count: 'exact', head: true }) as any;
+  const getContactsForRules = async (segRules: SegmentRule[]): Promise<any[]> => {
+    if (!user) return [];
+    // Step 1: apply standard field filters via Supabase query
+    let query = supabase.from('contacts').select('id, first_name, last_name, email, lead_score, status') as any;
     for (const rule of segRules) {
       if (rule.field === 'tag' || rule.field.startsWith('cf_')) continue;
       query = applyFilter(query, rule);
     }
-    const { count } = await query;
-    return count || 0;
+    const { data: dbContacts } = await query;
+    let result: any[] = dbContacts || [];
+
+    // Step 2: apply tag filters client-side
+    const tagRules = segRules.filter(r => r.field === 'tag');
+    if (tagRules.length > 0) {
+      // Fetch all contact_tags with tag names
+      const { data: allCT } = await supabase.from('contact_tags').select('contact_id, tag_id, tags(name)');
+      const contactTagMap = new Map<string, string[]>();
+      (allCT || []).forEach((ct: any) => {
+        const name = ct.tags?.name;
+        if (!name) return;
+        const arr = contactTagMap.get(ct.contact_id) || [];
+        arr.push(name);
+        contactTagMap.set(ct.contact_id, arr);
+      });
+
+      for (const rule of tagRules) {
+        result = result.filter(c => {
+          const tags = contactTagMap.get(c.id) || [];
+          switch (rule.operator) {
+            case 'has_tag': return tags.includes(rule.value);
+            case 'not_has_tag': return !tags.includes(rule.value);
+            case 'has_any_tag': return tags.length > 0;
+            case 'has_no_tags': return tags.length === 0;
+            default: return true;
+          }
+        });
+      }
+    }
+
+    // Step 3: apply custom field filters client-side
+    const cfRules = segRules.filter(r => r.field.startsWith('cf_'));
+    if (cfRules.length > 0) {
+      const contactIds = result.map(c => c.id);
+      if (contactIds.length === 0) return [];
+      const { data: cfValues } = await supabase.from('contact_custom_values').select('contact_id, custom_field_id, value').in('contact_id', contactIds);
+      const cfMap = new Map<string, Map<string, string>>();
+      (cfValues || []).forEach((v: any) => {
+        if (!cfMap.has(v.contact_id)) cfMap.set(v.contact_id, new Map());
+        cfMap.get(v.contact_id)!.set(v.custom_field_id, v.value || '');
+      });
+
+      for (const rule of cfRules) {
+        const fieldId = rule.field.replace('cf_', '');
+        result = result.filter(c => {
+          const val = cfMap.get(c.id)?.get(fieldId) || '';
+          return matchValue(val, rule.operator, rule.value);
+        });
+      }
+    }
+
+    return result;
+  };
+
+  const matchValue = (val: string, operator: string, target: string): boolean => {
+    switch (operator) {
+      case 'equals': return val === target;
+      case 'not_equals': return val !== target;
+      case 'contains': return val.toLowerCase().includes(target.toLowerCase());
+      case 'not_contains': return !val.toLowerCase().includes(target.toLowerCase());
+      case 'starts_with': return val.toLowerCase().startsWith(target.toLowerCase());
+      case 'ends_with': return val.toLowerCase().endsWith(target.toLowerCase());
+      case 'greater_than': return parseFloat(val) > parseFloat(target);
+      case 'less_than': return parseFloat(val) < parseFloat(target);
+      case 'greater_or_equal': return parseFloat(val) >= parseFloat(target);
+      case 'less_or_equal': return parseFloat(val) <= parseFloat(target);
+      case 'is_empty': return !val;
+      case 'is_not_empty': return !!val;
+      default: return true;
+    }
+  };
+
+  const countContactsForRules = async (segRules: SegmentRule[]): Promise<number> => {
+    const contacts = await getContactsForRules(segRules);
+    return contacts.length;
   };
 
   const applyFilter = (query: any, rule: SegmentRule) => {
@@ -275,14 +350,8 @@ export default function Segments() {
     setViewLoading(true);
     setViewOpen(true);
 
-    // Fetch contacts matching rules
-    const segRules = (seg.rules || []) as SegmentRule[];
-    let query = supabase.from('contacts').select('id, first_name, last_name, email, lead_score, status') as any;
-    for (const rule of segRules) {
-      if (rule.field === 'tag' || rule.field.startsWith('cf_')) continue;
-      query = applyFilter(query, rule);
-    }
-    const { data: ruleContacts } = await query;
+    // Fetch contacts matching rules (using shared helper)
+    const ruleContacts = await getContactsForRules((seg.rules || []) as SegmentRule[]);
 
     // Fetch manually added contacts
     const { data: manualRows } = await supabase.from('segment_contacts').select('contact_id').eq('segment_id', seg.id);
@@ -295,7 +364,7 @@ export default function Segments() {
 
     // Merge and deduplicate
     const allMap = new Map<string, any>();
-    (ruleContacts || []).forEach((c: any) => allMap.set(c.id, { ...c, source: 'regla' }));
+    ruleContacts.forEach((c: any) => allMap.set(c.id, { ...c, source: 'regla' }));
     manualContacts.forEach(c => {
       if (allMap.has(c.id)) {
         allMap.set(c.id, { ...allMap.get(c.id), source: 'ambos' });
