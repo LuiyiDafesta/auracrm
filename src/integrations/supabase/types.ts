@@ -152,6 +152,48 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_custom_values: {
+        Row: {
+          contact_id: string
+          created_at: string
+          custom_field_id: string
+          id: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          custom_field_id: string
+          id?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          custom_field_id?: string
+          id?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_custom_values_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_custom_values_custom_field_id_fkey"
+            columns: ["custom_field_id"]
+            isOneToOne: false
+            referencedRelation: "custom_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_tags: {
         Row: {
           contact_id: string
@@ -190,12 +232,14 @@ export type Database = {
       }
       contacts: {
         Row: {
+          avatar_url: string | null
           company_id: string | null
           created_at: string
           email: string | null
           first_name: string
           id: string
           last_name: string | null
+          lead_score: number
           notes: string | null
           phone: string | null
           position: string | null
@@ -204,12 +248,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          avatar_url?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
           first_name: string
           id?: string
           last_name?: string | null
+          lead_score?: number
           notes?: string | null
           phone?: string | null
           position?: string | null
@@ -218,12 +264,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          avatar_url?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
           first_name?: string
           id?: string
           last_name?: string | null
+          lead_score?: number
           notes?: string | null
           phone?: string | null
           position?: string | null
@@ -240,6 +288,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      custom_fields: {
+        Row: {
+          created_at: string
+          field_type: string
+          id: string
+          is_required: boolean
+          is_visible: boolean
+          name: string
+          options: Json | null
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          is_visible?: boolean
+          name: string
+          options?: Json | null
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          is_visible?: boolean
+          name?: string
+          options?: Json | null
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       opportunities: {
         Row: {

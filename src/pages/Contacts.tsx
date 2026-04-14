@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Star } from 'lucide-react';
 import { TagManager } from '@/components/TagManager';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -19,6 +20,7 @@ type Company = Database['public']['Tables']['companies']['Row'];
 export default function Contacts() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch] = useState('');
@@ -150,6 +152,7 @@ export default function Contacts() {
                 <TableHead>Nombre</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Empresa</TableHead>
+                <TableHead>Puntuación</TableHead>
                 <TableHead>Etiquetas</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-20"></TableHead>
@@ -157,12 +160,19 @@ export default function Contacts() {
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No hay contactos</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No hay contactos</TableCell></TableRow>
               ) : filtered.map(c => (
-                <TableRow key={c.id}>
+                <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/contactos/${c.id}`)}>
                   <TableCell className="font-medium">{c.first_name} {c.last_name}</TableCell>
                   <TableCell>{c.email || '—'}</TableCell>
                   <TableCell>{getCompanyName(c.company_id)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {[1,2,3,4,5].map(s => (
+                        <Star key={s} className={`h-3 w-3 ${((c as any).lead_score / 20) >= s ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/20'}`} />
+                      ))}
+                    </div>
+                  </TableCell>
                   <TableCell><TagManager contactId={c.id} /></TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${c.status === 'activo' ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
@@ -170,7 +180,7 @@ export default function Contacts() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>

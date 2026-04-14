@@ -1,0 +1,10 @@
+---
+name: Database Schema
+description: All database tables, columns, and relationships for AuraCRM
+type: feature
+---
+Tables: profiles, companies, contacts (+ avatar_url, lead_score), opportunities, tasks, campaigns, activities, tags, contact_tags, segments, custom_fields, contact_custom_values
+- custom_fields: user-defined fields with types (text, number, date, select, checkbox, etc.), is_visible toggle
+- contact_custom_values: stores values per contact+field combo
+- Storage bucket: avatars (public read)
+All tables have RLS by user_id.

@@ -17,6 +17,8 @@ import Reports from "./pages/Reports";
 import SettingsPage from "./pages/SettingsPage";
 import TagsPage from "./pages/TagsPage";
 import Segments from "./pages/Segments";
+import CustomFieldsPage from "./pages/CustomFieldsPage";
+import ContactDetail from "./pages/ContactDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +57,8 @@ const App = () => (
             <Route path="/configuracion" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/etiquetas" element={<ProtectedRoute><TagsPage /></ProtectedRoute>} />
             <Route path="/segmentos" element={<ProtectedRoute><Segments /></ProtectedRoute>} />
+            <Route path="/campos-personalizados" element={<ProtectedRoute><CustomFieldsPage /></ProtectedRoute>} />
+            <Route path="/contactos/:id" element={<ProtectedRoute><ContactDetail /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
