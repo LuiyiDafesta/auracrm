@@ -53,7 +53,7 @@ export default function Campaigns() {
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: editing ? 'Campaña actualizada' : 'Campaña creada' });
     setOpen(false); setEditing(null);
-    setForm({ name: '', type: '', status: 'borrador', start_date: '', end_date: '', budget: '', notes: '' });
+    setForm({ name: '', type: '', status: 'borrador', start_date: '', end_date: '', budget: '', notes: '', from_email: '', from_name: '' });
     fetchData();
   };
 
@@ -65,7 +65,7 @@ export default function Campaigns() {
 
   const openEdit = (c: Campaign) => {
     setEditing(c);
-    setForm({ name: c.name, type: c.type || '', status: c.status, start_date: c.start_date || '', end_date: c.end_date || '', budget: String(c.budget || ''), notes: c.notes || '' });
+    setForm({ name: c.name, type: c.type || '', status: c.status, start_date: c.start_date || '', end_date: c.end_date || '', budget: String(c.budget || ''), notes: c.notes || '', from_email: (c as any).from_email || '', from_name: (c as any).from_name || '' });
     setOpen(true);
   };
 
@@ -73,7 +73,7 @@ export default function Campaigns() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-3xl font-bold">Campañas</h1><p className="text-muted-foreground">Gestiona tus campañas</p></div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ name: '', type: '', status: 'borrador', start_date: '', end_date: '', budget: '', notes: '' }); } }}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ name: '', type: '', status: 'borrador', start_date: '', end_date: '', budget: '', notes: '', from_email: '', from_name: '' }); } }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nueva Campaña</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? 'Editar Campaña' : 'Nueva Campaña'}</DialogTitle></DialogHeader>
