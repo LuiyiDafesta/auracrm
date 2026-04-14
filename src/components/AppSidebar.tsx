@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Building2, TrendingUp, CheckSquare,
-  Calendar, Megaphone, BarChart3, Settings, LogOut, Zap,
+  Calendar, Megaphone, BarChart3, Settings, LogOut, Zap, Tag, Filter,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -15,6 +15,8 @@ const items = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Contactos', url: '/contactos', icon: Users },
   { title: 'Empresas', url: '/empresas', icon: Building2 },
+  { title: 'Etiquetas', url: '/etiquetas', icon: Tag },
+  { title: 'Segmentos', url: '/segmentos', icon: Filter },
   { title: 'Oportunidades', url: '/oportunidades', icon: TrendingUp },
   { title: 'Tareas', url: '/tareas', icon: CheckSquare },
   { title: 'Calendario', url: '/calendario', icon: Calendar },
