@@ -469,6 +469,53 @@ export default function Segments() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* View segment contacts dialog */}
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Contactos en "{viewSegment?.name}"
+              <Badge variant="secondary">{viewContacts.length}</Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-9" placeholder="Buscar en este segmento..." value={viewSearch} onChange={e => setViewSearch(e.target.value)} />
+            </div>
+            {viewLoading ? (
+              <div className="flex justify-center py-8"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" /></div>
+            ) : (
+              <ScrollArea className="h-[400px] border rounded-md">
+                <div className="divide-y">
+                  {viewFilteredContacts.map(c => (
+                    <div key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{c.first_name} {c.last_name}</p>
+                        {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${(c.lead_score || 0) >= 80 ? 'bg-green-500' : (c.lead_score || 0) >= 50 ? 'bg-yellow-500' : (c.lead_score || 0) >= 20 ? 'bg-orange-500' : 'bg-muted-foreground/50'}`} style={{ width: `${c.lead_score || 0}%` }} />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-6 text-right">{c.lead_score || 0}</span>
+                      </div>
+                      <Badge variant={c.source === 'manual' ? 'outline' : c.source === 'ambos' ? 'default' : 'secondary'} className="text-xs shrink-0">
+                        {c.source === 'manual' ? 'Manual' : c.source === 'ambos' ? 'Regla + Manual' : 'Regla'}
+                      </Badge>
+                    </div>
+                  ))}
+                  {viewFilteredContacts.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground py-8">No hay contactos en este segmento</p>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
