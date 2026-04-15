@@ -14,7 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Pencil, Trash2, Filter, X, CalendarIcon, Users, Tag, ChevronDown } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Filter, X, CalendarIcon, Users, Tag, ChevronDown, Upload } from 'lucide-react';
+import { ImportContactsDialog } from '@/components/ImportContactsDialog';
 import { TagManager } from '@/components/TagManager';
 import { TablePagination } from '@/components/TablePagination';
 import { format } from 'date-fns';
@@ -62,21 +63,25 @@ export default function Contacts() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkSegmentOpen, setBulkSegmentOpen] = useState(false);
   const [bulkSegmentId, setBulkSegmentId] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [customFields, setCustomFields] = useState<{ id: string; name: string; field_type: string }[]>([]);
 
   const fetchData = async () => {
     if (!user) return;
-    const [c, co, seg, tg, sc, ct] = await Promise.all([
+    const [c, co, seg, tg, sc, ct, cf] = await Promise.all([
       supabase.from('contacts').select('*').order('created_at', { ascending: false }),
       supabase.from('companies').select('*').order('name'),
       supabase.from('segments').select('id, name').order('name'),
       supabase.from('tags').select('id, name, color').order('name'),
       supabase.from('segment_contacts').select('contact_id, segment_id'),
       supabase.from('contact_tags').select('contact_id, tag_id'),
+      supabase.from('custom_fields').select('id, name, field_type').order('sort_order'),
     ]);
     setContacts(c.data || []);
     setCompanies(co.data || []);
     setSegments((seg.data as SegmentInfo[]) || []);
     setTags((tg.data as TagInfo[]) || []);
+    setCustomFields((cf.data as any[]) || []);
 
     // Build contactSegments map
     const segMap: Record<string, SegmentInfo[]> = {};
@@ -241,6 +246,10 @@ export default function Contacts() {
             {filtered.length !== contacts.length && ` (de ${contacts.length} total)`}
           </p>
         </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />Importar CSV
+          </Button>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ first_name: '', last_name: '', email: '', phone: '', position: '', company_id: '', status: 'activo', notes: '' }); } }}>
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" />Nuevo Contacto</Button>
@@ -293,7 +302,16 @@ export default function Contacts() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+      <ImportContactsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        segments={segments}
+        tags={tags}
+        customFields={customFields}
+        onComplete={fetchData}
+      />
 
       <Card>
         <CardHeader className="pb-3">
