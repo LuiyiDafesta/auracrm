@@ -219,15 +219,25 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
   const { nodeType, config } = data;
 
   if (nodeType === "send_email") {
-    // Get SMTP config and template, then send
+    // Resolve template by id or name
+    let tmplQuery;
+    if (config?.template_id) {
+      tmplQuery = supabase.from("email_templates").select("*").eq("id", config.template_id).single();
+    } else if (config?.template_name) {
+      tmplQuery = supabase.from("email_templates").select("*").eq("name", config.template_name).eq("user_id", userId).single();
+    } else {
+      throw new Error("No template_id or template_name specified");
+    }
+
+    // Get SMTP config, template, and contact in parallel
     const [smtpRes, tmplRes, contactRes] = await Promise.all([
       supabase.from("smtp_config").select("*").eq("user_id", userId).single(),
-      supabase.from("email_templates").select("*").eq("id", config?.template_id).single(),
-      supabase.from("contacts").select("email, first_name, last_name").eq("id", contactId).single(),
+      tmplQuery,
+      supabase.from("contacts").select("*").eq("id", contactId).single(),
     ]);
 
     if (!smtpRes.data) throw new Error("No SMTP config");
-    if (!tmplRes.data) throw new Error("Template not found");
+    if (!tmplRes.data) throw new Error(`Template not found: ${config?.template_id || config?.template_name}`);
     if (!contactRes.data?.email) throw new Error("Contact has no email");
 
     const smtp = smtpRes.data;
@@ -244,14 +254,38 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
 
     let html = template.html_content || "<p>Sin contenido</p>";
     const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
-    html = html.replace(/\{\{nombre\}\}/gi, name);
-    html = html.replace(/\{\{email\}\}/gi, contact.email);
+
+    // Replace standard variables
+    html = html.replace(/\{\{nombre\}\}/gi, contact.first_name || "");
+    html = html.replace(/\{\{apellido\}\}/gi, contact.last_name || "");
+    html = html.replace(/\{\{email\}\}/gi, contact.email || "");
+    html = html.replace(/\{\{telefono\}\}/gi, contact.phone || "");
+    html = html.replace(/\{\{empresa\}\}/gi, "");
+    html = html.replace(/\{\{cargo\}\}/gi, contact.position || "");
+    html = html.replace(/\{\{puntuacion\}\}/gi, String(contact.lead_score || 0));
+
+    // Replace custom field variables
+    const { data: cfVals } = await supabase
+      .from("contact_custom_values")
+      .select("value, custom_fields(name)")
+      .eq("contact_id", contactId);
+    for (const cf of cfVals || []) {
+      if ((cf as any).custom_fields?.name) {
+        const re = new RegExp(`\\{\\{${(cf as any).custom_fields.name}\\}\\}`, "gi");
+        html = html.replace(re, cf.value || "");
+      }
+    }
+
+    let subj = template.subject || "(Sin asunto)";
+    subj = subj.replace(/\{\{nombre\}\}/gi, contact.first_name || "");
+    subj = subj.replace(/\{\{apellido\}\}/gi, contact.last_name || "");
+    subj = subj.replace(/\{\{email\}\}/gi, contact.email || "");
 
     const from = smtp.from_name ? `${smtp.from_name} <${smtp.from_email}>` : smtp.from_email;
-    await client.send({ from, to: contact.email, subject: template.subject || "(Sin asunto)", content: "auto", html });
+    await client.send({ from, to: contact.email, subject: subj, content: "auto", html });
     await client.close();
 
-    return { sent_to: contact.email };
+    return { sent_to: contact.email, template: template.name };
   }
 
   if (nodeType === "add_tag") {
