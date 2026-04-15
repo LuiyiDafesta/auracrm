@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
     for (const automation of automations) {
       // Check if trigger config matches
-      if (!matchesTrigger(automation.trigger_config, event_data)) continue;
+      if (!(await matchesTrigger(automation.trigger_config, event_data, user_id))) continue;
 
       // Check if this contact already has a running instance
       const { data: existingRun } = await supabase
@@ -103,10 +103,29 @@ Deno.serve(async (req) => {
   }
 });
 
-function matchesTrigger(config: any, eventData: any): boolean {
+async function matchesTrigger(config: any, eventData: any, userId: string): Promise<boolean> {
   if (!config || Object.keys(config).length === 0) return true;
-  if (config.tag_id && eventData?.tag_id && config.tag_id !== eventData.tag_id) return false;
-  if (config.segment_id && eventData?.segment_id && config.segment_id !== eventData.segment_id) return false;
+
+  // Resolve tag: config may have tag_id or tag_name
+  if (config.tag_id || config.tag_name) {
+    let tagId = config.tag_id;
+    if (!tagId && config.tag_name) {
+      const { data: tag } = await supabase.from("tags").select("id").eq("name", config.tag_name).eq("user_id", userId).single();
+      tagId = tag?.id;
+    }
+    if (tagId && eventData?.tag_id && tagId !== eventData.tag_id) return false;
+  }
+
+  // Resolve segment: config may have segment_id or segment_name
+  if (config.segment_id || config.segment_name) {
+    let segId = config.segment_id;
+    if (!segId && config.segment_name) {
+      const { data: seg } = await supabase.from("segments").select("id").eq("name", config.segment_name).eq("user_id", userId).single();
+      segId = seg?.id;
+    }
+    if (segId && eventData?.segment_id && segId !== eventData.segment_id) return false;
+  }
+
   if (config.field_name && eventData?.field_name && config.field_name !== eventData.field_name) return false;
   if (config.value !== undefined && eventData?.value !== undefined) {
     if (String(config.value) !== String(eventData.value)) return false;
@@ -189,8 +208,14 @@ async function evaluateCondition(data: any, contactId: string, userId: string): 
   const { nodeType, config } = data;
 
   if (nodeType === "has_tag" || nodeType === "not_has_tag") {
+    let tagId = config?.tag_id;
+    if (!tagId && config?.tag_name) {
+      const { data: tag } = await supabase.from("tags").select("id").eq("name", config.tag_name).eq("user_id", userId).single();
+      tagId = tag?.id;
+    }
+    if (!tagId) return nodeType === "not_has_tag"; // Tag doesn't exist = "not has tag" is true
     const { data: ct } = await supabase
-      .from("contact_tags").select("id").eq("contact_id", contactId).eq("tag_id", config?.tag_id).limit(1).single();
+      .from("contact_tags").select("id").eq("contact_id", contactId).eq("tag_id", tagId).limit(1).single();
     return nodeType === "has_tag" ? !!ct : !ct;
   }
 
@@ -206,9 +231,32 @@ async function evaluateCondition(data: any, contactId: string, userId: string): 
   }
 
   if (nodeType === "in_segment" || nodeType === "not_in_segment") {
+    let segId = config?.segment_id;
+    if (!segId && config?.segment_name) {
+      const { data: seg } = await supabase.from("segments").select("id").eq("name", config.segment_name).eq("user_id", userId).single();
+      segId = seg?.id;
+    }
+    if (!segId) return nodeType === "not_in_segment"; // Segment doesn't exist = "not in segment" is true
     const { data: sc } = await supabase
-      .from("segment_contacts").select("id").eq("contact_id", contactId).eq("segment_id", config?.segment_id).limit(1).single();
+      .from("segment_contacts").select("id").eq("contact_id", contactId).eq("segment_id", segId).limit(1).single();
     return nodeType === "in_segment" ? !!sc : !sc;
+  }
+
+  if (nodeType === "field_equals") {
+    const { data: contact } = await supabase.from("contacts").select("*").eq("id", contactId).single();
+    if (!contact) return false;
+    const fieldName = config?.field_name;
+    const fieldValue = config?.value;
+    if (fieldName && contact[fieldName] !== undefined) {
+      return String(contact[fieldName]) === String(fieldValue);
+    }
+    // Check custom fields
+    const { data: cfVal } = await supabase
+      .from("contact_custom_values")
+      .select("value, custom_fields(name)")
+      .eq("contact_id", contactId);
+    const match = (cfVal || []).find((cf: any) => (cf as any).custom_fields?.name === fieldName);
+    return match ? String(match.value) === String(fieldValue) : false;
   }
 
   return true;
