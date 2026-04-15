@@ -302,7 +302,16 @@ export default function Contacts() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+      <ImportContactsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        segments={segments}
+        tags={tags}
+        customFields={customFields}
+        onComplete={fetchData}
+      />
 
       <Card>
         <CardHeader className="pb-3">
