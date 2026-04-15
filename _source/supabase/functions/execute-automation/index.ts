@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -229,7 +228,6 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
       throw new Error("No template_id or template_name specified");
     }
 
-    // Get SMTP config, template, and contact in parallel
     const [smtpRes, tmplRes, contactRes] = await Promise.all([
       supabase.from("smtp_config").select("*").eq("user_id", userId).single(),
       tmplQuery,
@@ -244,21 +242,7 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
     const template = tmplRes.data;
     const contact = contactRes.data;
 
-    // Port 587 = STARTTLS (connect plain, then upgrade)
-    // Port 465 = direct TLS/SSL
-    const useDirectTls = smtp.port === 465;
-
-    const client = new SMTPClient({
-      connection: {
-        hostname: smtp.host,
-        port: smtp.port,
-        tls: useDirectTls,
-        auth: { username: smtp.username, password: smtp.password },
-      },
-    });
-
     let html = template.html_content || "<p>Sin contenido</p>";
-    const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
 
     // Replace standard variables
     html = html.replace(/\{\{nombre\}\}/gi, contact.first_name || "");
@@ -287,8 +271,24 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
     subj = subj.replace(/\{\{email\}\}/gi, contact.email || "");
 
     const from = smtp.from_name ? `${smtp.from_name} <${smtp.from_email}>` : smtp.from_email;
-    await client.send({ from, to: contact.email, subject: subj, content: "auto", html });
-    await client.close();
+
+    // Send via Emailit HTTP API (SMTP password = API key for Emailit)
+    if (smtp.host.includes("emailit.com")) {
+      const res = await fetch("https://api.emailit.com/v2/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${smtp.password}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ from, to: contact.email, subject: subj, html }),
+      });
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`Emailit API error (${res.status}): ${errBody}`);
+      }
+    } else {
+      throw new Error(`SMTP provider "${smtp.host}" not supported in Edge Functions. Use Emailit.`);
+    }
 
     return { sent_to: contact.email, template: template.name };
   }
