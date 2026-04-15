@@ -8,10 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Zap } from 'lucide-react';
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -21,28 +19,12 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate('/');
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: fullName },
-            emailRedirectTo: window.location.origin,
-          },
-        });
-        if (error) throw error;
-        toast({
-          title: 'Cuenta creada',
-          description: 'Revisa tu correo para confirmar tu cuenta.',
-        });
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      navigate('/');
     } catch (error: any) {
       toast({
-        title: 'Error',
+        title: 'Error de acceso',
         description: error.message,
         variant: 'destructive',
       });
@@ -62,22 +44,11 @@ export default function Auth() {
             <CardTitle className="text-2xl font-bold">AuraCRM</CardTitle>
           </div>
           <CardDescription>
-            {isLogin ? 'Inicia sesión en tu cuenta' : 'Crea tu cuenta'}
+            Inicia sesión en tu cuenta
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nombre completo</label>
-                <Input
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Juan Pérez"
-                  required={!isLogin}
-                />
-              </div>
-            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Correo electrónico</label>
               <Input
@@ -100,18 +71,9 @@ export default function Auth() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Cargando...' : isLogin ? 'Iniciar sesión' : 'Registrarse'}
+              {loading ? 'Cargando...' : 'Iniciar sesión'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline"
-            >
-              {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>
