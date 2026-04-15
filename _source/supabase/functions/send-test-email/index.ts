@@ -57,7 +57,9 @@ Deno.serve(async (req) => {
 
     const { to_email, smtp_host, smtp_port, smtp_username, smtp_password, from_email, from_name, encryption } = parsed.data;
 
-    const tls = encryption === "tls" || encryption === "ssl";
+    // Port 587 = STARTTLS (connect plain, upgrade) → tls: false
+    // Port 465 = Implicit SSL (connect encrypted) → tls: true
+    const tls = encryption === "ssl";
 
     const client = new SMTPClient({
       connection: {

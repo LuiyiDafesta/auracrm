@@ -110,7 +110,7 @@ async function processSend(send: any, today: string) {
   // Connect SMTP
   let client: SMTPClient;
   try {
-    const tls = smtpConfig.encryption === "tls" || smtpConfig.encryption === "ssl";
+    const tls = smtpConfig.encryption === "ssl";
     client = new SMTPClient({
       connection: {
         hostname: smtpConfig.host,
