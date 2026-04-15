@@ -63,6 +63,8 @@ export default function Contacts() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkSegmentOpen, setBulkSegmentOpen] = useState(false);
   const [bulkSegmentId, setBulkSegmentId] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [customFields, setCustomFields] = useState<{ id: string; name: string; field_type: string }[]>([]);
 
   const fetchData = async () => {
     if (!user) return;
