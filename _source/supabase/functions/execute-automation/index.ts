@@ -58,14 +58,27 @@ Deno.serve(async (req) => {
 
       if (existingRun) continue; // Already running
 
-      // Create a new run
+      // Count how many runs are already queued (to stagger) - 1.5s apart
+      const { count: queuedCount } = await supabase
+        .from("automation_runs")
+        .select("id", { count: "exact", head: true })
+        .eq("automation_id", automation.id)
+        .eq("status", "waiting")
+        .gt("wait_until", new Date().toISOString());
+
+      const delayMs = (queuedCount || 0) * 1500; // 1.5 seconds apart per queued run
+      const waitUntil = new Date(Date.now() + delayMs).toISOString();
+
+      // Queue the run (don't execute immediately — cron will pick it up)
       const { data: run, error: runErr } = await supabase
         .from("automation_runs")
         .insert({
           automation_id: automation.id,
           user_id,
           contact_id,
-          status: "running",
+          status: "waiting",
+          wait_until: waitUntil,
+          current_step_id: "__trigger__",
           context: { event_data: event_data || {} },
         })
         .select()
@@ -76,20 +89,13 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Execute the workflow
-      const workflow = automation.workflow || { nodes: [], edges: [] };
-      const triggerNode = workflow.nodes.find((n: any) => n.type === "trigger");
-      if (!triggerNode) continue;
-
-      await executeFromNode(automation, run, workflow, triggerNode.id, contact_id, user_id);
-
       // Increment run count
       await supabase
         .from("automations")
         .update({ run_count: (automation.run_count || 0) + 1, last_run_at: new Date().toISOString() })
         .eq("id", automation.id);
 
-      results.push({ automation_id: automation.id, run_id: run.id, status: "started" });
+      results.push({ automation_id: automation.id, run_id: run.id, status: "queued", execute_at: waitUntil });
     }
 
     return new Response(JSON.stringify({ results }), {
@@ -318,7 +324,10 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
     subj = subj.replace(/\{\{apellido\}\}/gi, contact.last_name || "");
     subj = subj.replace(/\{\{email\}\}/gi, contact.email || "");
 
-    const from = smtp.from_name ? `${smtp.from_name} <${smtp.from_email}>` : smtp.from_email;
+    // Use custom sender from action config, or fall back to SMTP defaults
+    const senderEmail = config?.from_email || smtp.from_email;
+    const senderName = config?.from_name || smtp.from_name;
+    const from = senderName ? `${senderName} <${senderEmail}>` : senderEmail;
 
     // Send via Emailit HTTP API (SMTP password = API key for Emailit)
     if (smtp.host.includes("emailit.com")) {
@@ -413,11 +422,13 @@ async function processWaitingRuns() {
     .select("*, automations(*)")
     .eq("status", "waiting")
     .lte("wait_until", now)
-    .limit(20);
+    .order("wait_until", { ascending: true })
+    .limit(30);
 
   if (!waitingRuns || waitingRuns.length === 0) return;
 
-  for (const run of waitingRuns) {
+  for (let i = 0; i < waitingRuns.length; i++) {
+    const run = waitingRuns[i];
     const automation = (run as any).automations;
     if (!automation) continue;
 
@@ -427,14 +438,35 @@ async function processWaitingRuns() {
     // Mark as running
     await supabase.from("automation_runs").update({ status: "running" }).eq("id", run.id);
 
-    // Find next edges from current step
-    const outEdges = workflow.edges.filter((e: any) => e.source === currentStepId);
-    if (outEdges.length > 0) {
-      for (const edge of outEdges) {
-        await executeFromNode(automation, run, workflow, edge.target, run.contact_id, run.user_id);
+    try {
+      if (currentStepId === "__trigger__") {
+        // This is a freshly queued run from a trigger — execute from the beginning
+        const triggerNode = workflow.nodes.find((n: any) => n.type === "trigger");
+        if (triggerNode) {
+          await executeFromNode(automation, run, workflow, triggerNode.id, run.contact_id, run.user_id);
+        } else {
+          await supabase.from("automation_runs").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", run.id);
+        }
+      } else {
+        // This is a run resuming after a "wait" step
+        const outEdges = workflow.edges.filter((e: any) => e.source === currentStepId);
+        if (outEdges.length > 0) {
+          for (const edge of outEdges) {
+            await executeFromNode(automation, run, workflow, edge.target, run.contact_id, run.user_id);
+          }
+        } else {
+          await supabase.from("automation_runs").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", run.id);
+        }
       }
-    } else {
-      await supabase.from("automation_runs").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", run.id);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await supabase.from("automation_runs").update({ status: "failed", completed_at: new Date().toISOString() }).eq("id", run.id);
+      await logStep(run.id, currentStepId || "unknown", "system", "error", null, msg);
+    }
+
+    // Rate limit: wait 1.5s between executions to avoid spam/API limits
+    if (i < waitingRuns.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
   }
 }

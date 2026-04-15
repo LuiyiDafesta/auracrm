@@ -135,6 +135,10 @@ export function NodeConfigPanel({ node, onUpdate, onDelete }: Props) {
             <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
             <SelectContent>{templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
           </Select>
+          <label className="text-xs font-medium">Remitente (opcional)</label>
+          <p className="text-[10px] text-muted-foreground">Si se deja vacío usará la config SMTP por defecto</p>
+          <Input value={config.from_name || ''} onChange={e => updateConfig('from_name', e.target.value)} placeholder="Nombre del remitente" className="text-xs" />
+          <Input value={config.from_email || ''} onChange={e => updateConfig('from_email', e.target.value)} placeholder="email@dominio.com" className="text-xs" />
         </div>
       )}
 
