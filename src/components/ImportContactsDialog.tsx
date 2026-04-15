@@ -160,7 +160,7 @@ export function ImportContactsDialog({ open, onOpenChange, segments, tags, custo
 
         const { data: inserted, error } = await supabase
           .from('contacts')
-          .upsert(contact, { onConflict: 'user_id,email', ignoreDuplicates: false })
+          .upsert(contact as any, { onConflict: 'user_id,email', ignoreDuplicates: false })
           .select('id')
           .single();
 
