@@ -243,11 +243,16 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
     const smtp = smtpRes.data;
     const template = tmplRes.data;
     const contact = contactRes.data;
-    const tls = smtp.encryption === "tls" || smtp.encryption === "ssl";
+
+    // Port 587 = STARTTLS (connect plain, then upgrade)
+    // Port 465 = direct TLS/SSL
+    const useDirectTls = smtp.port === 465;
 
     const client = new SMTPClient({
       connection: {
-        hostname: smtp.host, port: smtp.port, tls,
+        hostname: smtp.host,
+        port: smtp.port,
+        tls: useDirectTls,
         auth: { username: smtp.username, password: smtp.password },
       },
     });
