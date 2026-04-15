@@ -270,7 +270,7 @@ export default function ApiDocsPage() {
           {/* CONTACTS */}
           <h2 className="text-lg font-bold pt-4">📇 Contactos</h2>
 
-          <EndpointDoc method="GET" path="/v1/contacts" description="Listar contactos con paginación y filtros" permission="contacts:read"
+          <EndpointDoc method="GET" path="/v1/contacts" description="Listar contactos con paginación, filtros, tags, segmentos y campos personalizados incluidos" permission="contacts:read"
             params={[
               { name: 'page', desc: 'Página (default: 1)' },
               { name: 'per_page', desc: 'Resultados por página (max 100, default: 50)' },
@@ -280,22 +280,40 @@ export default function ApiDocsPage() {
               { name: 'segment_id', desc: 'Filtrar por segmento (UUID)' },
             ]}
             example={`curl -H "x-api-key: KEY" "${baseUrl}/public-api/v1/contacts?tag_id=UUID&page=1"`}
+            response={`{
+  "data": [{
+    "id": "uuid", "first_name": "Juan", "email": "...",
+    "tags": [{"id": "uuid", "name": "VIP"}],
+    "segments": [{"id": "uuid", "name": "Activos"}],
+    "custom_fields": { "Industria": "Tech" }
+  }],
+  "pagination": { "page": 1, "per_page": 50, "total": 120, "total_pages": 3 }
+}`}
             baseUrl={baseUrl}
           />
 
-          <EndpointDoc method="GET" path="/v1/contacts/:id" description="Obtener contacto con tags, segmentos y campos personalizados" permission="contacts:read"
+          <EndpointDoc method="GET" path="/v1/contacts/:id" description="Obtener contacto con tags, segmentos y campos personalizados integrados" permission="contacts:read"
             response={`{
   "data": {
-    "id": "uuid", "first_name": "Juan", "email": "...",
-    "tags": [{"id": "uuid", "name": "VIP", "color": "#..."}],
+    "id": "uuid",
+    "first_name": "Juan",
+    "last_name": "Pérez",
+    "email": "juan@email.com",
+    "phone": "+5491155...",
+    "status": "activo",
+    "lead_score": 50,
+    "tags": [{"id": "uuid", "name": "VIP", "color": "#EF4444"}],
     "segments": [{"id": "uuid", "name": "Clientes activos"}],
-    "custom_fields": [{"id": "uuid", "name": "Industria", "type": "text", "value": "Tech"}]
+    "custom_fields": {
+      "Industria": "Tech",
+      "Ciudad": "Buenos Aires"
+    }
   }
 }`}
             baseUrl={baseUrl}
           />
 
-          <EndpointDoc method="POST" path="/v1/contacts" description="Crear contacto con tags, segmentos y campos personalizados" permission="contacts:write"
+          <EndpointDoc method="POST" path="/v1/contacts" description="Crear contacto con tags, segmentos y campos personalizados. Retorna el contacto completo." permission="contacts:write"
             body={`{
   "first_name": "Juan",              // requerido
   "last_name": "Pérez",
@@ -304,21 +322,23 @@ export default function ApiDocsPage() {
   "status": "activo",
   "tag_ids": ["uuid-tag-1"],         // opcional: asignar etiquetas
   "segment_ids": ["uuid-seg-1"],     // opcional: agregar a segmentos
-  "custom_fields": [                 // opcional: valores de campos personalizados
-    { "custom_field_id": "uuid", "value": "Tech" }
-  ]
+  "custom_fields": {                 // opcional: por nombre del campo
+    "Industria": "Tech",
+    "Ciudad": "Buenos Aires"
+  }
 }`}
             baseUrl={baseUrl}
           />
 
-          <EndpointDoc method="PUT" path="/v1/contacts/:id" description="Actualizar contacto (incluye reemplazar tags/segmentos)" permission="contacts:write"
+          <EndpointDoc method="PUT" path="/v1/contacts/:id" description="Actualizar contacto. Retorna el contacto completo actualizado. Tags/segmentos se reemplazan si se envían." permission="contacts:write"
             body={`{
   "lead_score": 80,
   "tag_ids": ["uuid-1", "uuid-2"],   // reemplaza todas las etiquetas
   "segment_ids": ["uuid-seg"],       // reemplaza todos los segmentos
-  "custom_fields": [                 // upsert campos personalizados
-    { "custom_field_id": "uuid", "value": "nuevo valor" }
-  ]
+  "custom_fields": {                 // upsert por nombre del campo
+    "Industria": "nuevo valor",
+    "Ciudad": "Córdoba"
+  }
 }`}
             baseUrl={baseUrl}
           />
@@ -335,8 +355,10 @@ export default function ApiDocsPage() {
           <EndpointDoc method="POST" path="/v1/contacts/:id/segments" description="Agregar contacto a segmento" permission="contacts:write" body={`{ "segment_id": "uuid" }`} baseUrl={baseUrl} />
           <EndpointDoc method="DELETE" path="/v1/contacts/:id/segments?segment_id=UUID" description="Quitar contacto de segmento" permission="contacts:write" baseUrl={baseUrl} />
 
-          <EndpointDoc method="GET" path="/v1/contacts/:id/custom-fields" description="Listar valores de campos personalizados" permission="contacts:read" baseUrl={baseUrl} />
-          <EndpointDoc method="POST" path="/v1/contacts/:id/custom-fields" description="Establecer valor de campo personalizado" permission="contacts:write" body={`{ "custom_field_id": "uuid", "value": "Tech" }`} baseUrl={baseUrl} />
+          <EndpointDoc method="GET" path="/v1/contacts/:id/custom-fields" description="Listar valores de campos personalizados como objeto clave-valor" permission="contacts:read"
+            response={`{ "data": { "Industria": "Tech", "Ciudad": "BA" } }`} baseUrl={baseUrl} />
+          <EndpointDoc method="POST" path="/v1/contacts/:id/custom-fields" description="Establecer valores de campos personalizados por nombre" permission="contacts:write"
+            body={`{ "Industria": "Tech", "Ciudad": "Buenos Aires" }`} baseUrl={baseUrl} />
 
           {/* TAGS */}
           <h2 className="text-lg font-bold pt-4">🏷️ Etiquetas</h2>
