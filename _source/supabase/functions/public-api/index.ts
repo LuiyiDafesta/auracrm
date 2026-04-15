@@ -90,9 +90,14 @@ async function enrichContacts(
     .in("contact_id", ids);
 
   const nameMap = new Map(cfDefs.map((f: any) => [f.id, f.name]));
-  const grouped = new Map<string, Record<string, string>>();
+
+  // Build a base object with ALL defined fields set to null
+  const baseCf: Record<string, string | null> = {};
+  for (const f of cfDefs) baseCf[f.name] = null;
+
+  const grouped = new Map<string, Record<string, string | null>>();
   for (const v of cfVals || []) {
-    if (!grouped.has(v.contact_id)) grouped.set(v.contact_id, {});
+    if (!grouped.has(v.contact_id)) grouped.set(v.contact_id, { ...baseCf });
     const fname = nameMap.get(v.custom_field_id);
     if (fname) grouped.get(v.contact_id)![fname] = v.value;
   }
@@ -105,7 +110,7 @@ async function enrichContacts(
     const segments =
       c.segment_contacts?.map((sc: any) => sc.segments).filter(Boolean) || [];
 
-    const out = { ...c, tags, segments, custom_fields: grouped.get(c.id) || {} };
+    const out = { ...c, tags, segments, custom_fields: grouped.get(c.id) || { ...baseCf } };
     delete out.contact_tags;
     delete out.segment_contacts;
     return out;
