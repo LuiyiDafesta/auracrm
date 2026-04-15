@@ -274,6 +274,9 @@ export default function Contacts() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={exportCSV}>
+            <Download className="h-4 w-4 mr-2" />Exportar CSV
+          </Button>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />Importar CSV
           </Button>
