@@ -68,18 +68,20 @@ export default function Contacts() {
 
   const fetchData = async () => {
     if (!user) return;
-    const [c, co, seg, tg, sc, ct] = await Promise.all([
+    const [c, co, seg, tg, sc, ct, cf] = await Promise.all([
       supabase.from('contacts').select('*').order('created_at', { ascending: false }),
       supabase.from('companies').select('*').order('name'),
       supabase.from('segments').select('id, name').order('name'),
       supabase.from('tags').select('id, name, color').order('name'),
       supabase.from('segment_contacts').select('contact_id, segment_id'),
       supabase.from('contact_tags').select('contact_id, tag_id'),
+      supabase.from('custom_fields').select('id, name, field_type').order('sort_order'),
     ]);
     setContacts(c.data || []);
     setCompanies(co.data || []);
     setSegments((seg.data as SegmentInfo[]) || []);
     setTags((tg.data as TagInfo[]) || []);
+    setCustomFields((cf.data as any[]) || []);
 
     // Build contactSegments map
     const segMap: Record<string, SegmentInfo[]> = {};
