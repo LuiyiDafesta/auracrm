@@ -1,5 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2/cors";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
 Deno.serve(async (req: Request) => {
@@ -19,11 +22,9 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
-  const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: authHeader } },
-  });
 
-  const { data: { user }, error: authErr } = await userClient.auth.getUser();
+  const token = authHeader.replace("Bearer ", "");
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
   if (authErr || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
