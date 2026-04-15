@@ -36,6 +36,10 @@ export default function AutomationsPage() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [stats, setStats] = useState({ total: 0, running: 0, waiting: 0, completed: 0, failed: 0 });
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalRuns, setTotalRuns] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const fetchAutomations = useCallback(async () => {
     if (!user) return;
@@ -46,24 +50,39 @@ export default function AutomationsPage() {
   const fetchRuns = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await (supabase
-      .from('automation_runs' as any)
-      .select('*, automations(name, trigger_type), contacts(first_name, last_name, email)')
-      .order('created_at', { ascending: false })
-      .limit(100) as any);
-    setRuns(data || []);
 
-    // Calculate stats
-    const all = data || [];
+    // Fetch stats (counts by status)
+    const [totalRes, runningRes, waitingRes, completedRes, failedRes] = await Promise.all([
+      supabase.from('automation_runs' as any).select('id', { count: 'exact', head: true }) as any,
+      supabase.from('automation_runs' as any).select('id', { count: 'exact', head: true }).eq('status', 'running') as any,
+      supabase.from('automation_runs' as any).select('id', { count: 'exact', head: true }).eq('status', 'waiting') as any,
+      supabase.from('automation_runs' as any).select('id', { count: 'exact', head: true }).eq('status', 'completed') as any,
+      supabase.from('automation_runs' as any).select('id', { count: 'exact', head: true }).eq('status', 'failed') as any,
+    ]);
     setStats({
-      total: all.length,
-      running: all.filter((r: any) => r.status === 'running').length,
-      waiting: all.filter((r: any) => r.status === 'waiting').length,
-      completed: all.filter((r: any) => r.status === 'completed').length,
-      failed: all.filter((r: any) => r.status === 'failed').length,
+      total: totalRes.count || 0,
+      running: runningRes.count || 0,
+      waiting: waitingRes.count || 0,
+      completed: completedRes.count || 0,
+      failed: failedRes.count || 0,
     });
+
+    // Fetch paginated runs
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    let query = supabase
+      .from('automation_runs' as any)
+      .select('*, automations(name, trigger_type), contacts(first_name, last_name, email)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to) as any;
+    if (statusFilter !== 'all') {
+      query = query.eq('status', statusFilter);
+    }
+    const { data, count } = await query;
+    setRuns(data || []);
+    setTotalRuns(count || 0);
     setLoading(false);
-  }, [user]);
+  }, [user, page, pageSize, statusFilter]);
 
   const fetchLogs = useCallback(async (runId: string) => {
     setSelectedRunId(runId);
@@ -243,7 +262,20 @@ export default function AutomationsPage() {
             <Card className="flex-1">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">Ejecuciones recientes</CardTitle>
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-sm">Ejecuciones</CardTitle>
+                    <select
+                      className="text-xs border rounded px-2 py-1 bg-background"
+                      value={statusFilter}
+                      onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
+                    >
+                      <option value="all">Todos</option>
+                      <option value="running">Ejecutando</option>
+                      <option value="waiting">En espera</option>
+                      <option value="completed">Completados</option>
+                      <option value="failed">Fallidos</option>
+                    </select>
+                  </div>
                   <Button variant="ghost" size="sm" onClick={fetchRuns} disabled={loading}>
                     <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />Actualizar
                   </Button>
@@ -318,6 +350,35 @@ export default function AutomationsPage() {
                     })}
                   </TableBody>
                 </Table>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>Mostrando {runs.length} de {totalRuns}</span>
+                    <span>·</span>
+                    <select
+                      className="border rounded px-2 py-1 bg-background text-xs"
+                      value={pageSize}
+                      onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }}
+                    >
+                      <option value={10}>10 por pág</option>
+                      <option value={25}>25 por pág</option>
+                      <option value={50}>50 por pág</option>
+                      <option value={100}>100 por pág</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="text-xs h-7 px-2">
+                      ← Anterior
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-2">
+                      Pág {page + 1} / {Math.max(1, Math.ceil(totalRuns / pageSize))}
+                    </span>
+                    <Button variant="outline" size="sm" disabled={(page + 1) * pageSize >= totalRuns} onClick={() => setPage(p => p + 1)} className="text-xs h-7 px-2">
+                      Siguiente →
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 

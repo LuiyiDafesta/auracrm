@@ -578,6 +578,14 @@ export default function Segments() {
                       <Badge variant={c.source === 'manual' ? 'outline' : c.source === 'ambos' ? 'default' : 'secondary'} className="text-xs shrink-0">
                         {c.source === 'manual' ? 'Manual' : c.source === 'ambos' ? 'Regla + Manual' : 'Regla'}
                       </Badge>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={async () => {
+                        await supabase.from('segment_contacts').delete().eq('segment_id', viewSegment.id).eq('contact_id', c.id);
+                        setViewContacts(viewContacts.filter(vc => vc.id !== c.id));
+                        toast({ title: 'Contacto removido del segmento' });
+                        fetchData();
+                      }}>
+                        <X className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
                     </div>
                   ))}
                   {viewFilteredContacts.length === 0 && (
