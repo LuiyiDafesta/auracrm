@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -17,17 +16,14 @@ function sleep(ms: number) {
 }
 
 function injectTracking(html: string, queueItemId: string, campaignSendId: string): string {
-  // Inject open tracking pixel before </body>
   const pixelUrl = `${FUNCTION_BASE}?t=open&q=${queueItemId}&s=${campaignSendId}`;
   const pixel = `<img src="${pixelUrl}" width="1" height="1" style="display:none" alt="" />`;
 
-  // Replace links with click tracking redirects
   let tracked = html.replace(/href="(https?:\/\/[^"]+)"/g, (_match, url) => {
     const trackUrl = `${FUNCTION_BASE}?t=click&q=${queueItemId}&s=${campaignSendId}&url=${encodeURIComponent(url)}`;
     return `href="${trackUrl}"`;
   });
 
-  // Add pixel
   if (tracked.includes("</body>")) {
     tracked = tracked.replace("</body>", `${pixel}</body>`);
   } else {
@@ -35,6 +31,36 @@ function injectTracking(html: string, queueItemId: string, campaignSendId: strin
   }
 
   return tracked;
+}
+
+/**
+ * Send a single email via Emailit HTTP API or generic SMTP.
+ */
+async function sendEmail(
+  smtpConfig: any,
+  from: string,
+  to: string,
+  subject: string,
+  html: string
+): Promise<void> {
+  if (smtpConfig.host?.includes("emailit.com")) {
+    // Emailit: SMTP password = API key
+    const res = await fetch("https://api.emailit.com/v2/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${smtpConfig.password}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from, to, subject, html }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Emailit API error (${res.status}): ${body}`);
+    }
+  } else {
+    throw new Error(`El proveedor SMTP "${smtpConfig.host}" no es compatible con Edge Functions. Usa Emailit (smtp.emailit.com).`);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -45,7 +71,6 @@ Deno.serve(async (req) => {
   try {
     const today = new Date().toISOString().split("T")[0];
 
-    // Find active campaign_sends that are processing
     const { data: activeSends } = await supabase
       .from("campaign_sends")
       .select("*")
@@ -60,7 +85,6 @@ Deno.serve(async (req) => {
     }
 
     const results: any[] = [];
-
     for (const send of activeSends) {
       const result = await processSend(send, today);
       results.push(result);
@@ -80,7 +104,6 @@ Deno.serve(async (req) => {
 async function processSend(send: any, today: string) {
   const batchSize = send.emails_per_second || 1;
 
-  // Get SMTP config for this user
   const { data: smtpConfig } = await supabase
     .from("smtp_config")
     .select("*")
@@ -92,7 +115,6 @@ async function processSend(send: any, today: string) {
     return { send_id: send.id, error: "No hay configuración SMTP" };
   }
 
-  // Get the email template
   const { data: template } = await supabase
     .from("email_templates")
     .select("*")
@@ -107,27 +129,7 @@ async function processSend(send: any, today: string) {
   const fromEmail = send.from_email || smtpConfig.from_email;
   const fromName = send.from_name || smtpConfig.from_name || "";
 
-  // Connect SMTP
-  let client: SMTPClient;
-  try {
-    const tls = smtpConfig.encryption === "ssl";
-    client = new SMTPClient({
-      connection: {
-        hostname: smtpConfig.host,
-        port: smtpConfig.port,
-        tls,
-        auth: {
-          username: smtpConfig.username,
-          password: smtpConfig.password,
-        },
-      },
-    });
-  } catch (e) {
-    await supabase.from("campaign_sends").update({ status: "failed" }).eq("id", send.id);
-    return { send_id: send.id, error: `Error SMTP: ${e instanceof Error ? e.message : e}` };
-  }
-
-  // Fetch pending emails for today (or without scheduled_date) in batch
+  // Fetch pending emails for today
   const { data: pendingEmails } = await supabase
     .from("email_queue")
     .select("*")
@@ -138,7 +140,6 @@ async function processSend(send: any, today: string) {
     .limit(batchSize);
 
   if (!pendingEmails || pendingEmails.length === 0) {
-    // Check if there are future scheduled emails
     const { count } = await supabase
       .from("email_queue")
       .select("*", { count: "exact", head: true })
@@ -150,12 +151,9 @@ async function processSend(send: any, today: string) {
         status: "completed",
         completed_at: new Date().toISOString(),
       }).eq("id", send.id);
-      try { await client.close(); } catch (_) {}
       return { send_id: send.id, status: "completed" };
     }
 
-    // Future emails exist, skip for now
-    try { await client.close(); } catch (_) {}
     return { send_id: send.id, status: "waiting_for_scheduled_date", remaining: count };
   }
 
@@ -171,17 +169,9 @@ async function processSend(send: any, today: string) {
       let html = template.html_content || "<p>Sin contenido</p>";
       html = html.replace(/\{\{nombre\}\}/gi, email.to_name || "");
       html = html.replace(/\{\{email\}\}/gi, email.to_email || "");
-
-      // Inject tracking
       html = injectTracking(html, email.id, send.id);
 
-      await client.send({
-        from,
-        to: email.to_email,
-        subject: template.subject || "(Sin asunto)",
-        content: "auto",
-        html,
-      });
+      await sendEmail(smtpConfig, from, email.to_email, template.subject || "(Sin asunto)", html);
 
       await supabase.from("email_queue").update({
         status: "sent", sent_at: new Date().toISOString(),
@@ -199,7 +189,6 @@ async function processSend(send: any, today: string) {
     if (batchSize > 1) await sleep(Math.floor(1000 / batchSize));
   }
 
-  // Update counts
   const newSent = (send.sent_count || 0) + sentInBatch;
   const newFailed = (send.failed_count || 0) + failedInBatch;
   const totalProcessed = newSent + newFailed;
@@ -211,8 +200,6 @@ async function processSend(send: any, today: string) {
   }
 
   await supabase.from("campaign_sends").update(updateData).eq("id", send.id);
-
-  try { await client.close(); } catch (_) {}
 
   return { send_id: send.id, sent: sentInBatch, failed: failedInBatch, remaining: send.total_emails - totalProcessed };
 }
