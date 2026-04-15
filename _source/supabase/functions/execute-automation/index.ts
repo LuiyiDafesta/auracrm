@@ -293,14 +293,20 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
     return { sent_to: contact.email, template: template.name };
   }
 
-  if (nodeType === "add_tag") {
-    await supabase.from("contact_tags").insert({ contact_id: contactId, tag_id: config?.tag_id });
-    return { tag_id: config?.tag_id };
-  }
+  if (nodeType === "add_tag" || nodeType === "remove_tag") {
+    let tagId = config?.tag_id;
+    if (!tagId && config?.tag_name) {
+      const { data: tag } = await supabase.from("tags").select("id").eq("name", config.tag_name).eq("user_id", userId).single();
+      tagId = tag?.id;
+    }
+    if (!tagId) throw new Error(`Tag not found: ${config?.tag_name || config?.tag_id}`);
 
-  if (nodeType === "remove_tag") {
-    await supabase.from("contact_tags").delete().eq("contact_id", contactId).eq("tag_id", config?.tag_id);
-    return { tag_id: config?.tag_id };
+    if (nodeType === "add_tag") {
+      await supabase.from("contact_tags").upsert({ contact_id: contactId, tag_id: tagId }, { onConflict: "contact_id,tag_id", ignoreDuplicates: true });
+    } else {
+      await supabase.from("contact_tags").delete().eq("contact_id", contactId).eq("tag_id", tagId);
+    }
+    return { tag_id: tagId };
   }
 
   if (nodeType === "update_status") {
@@ -326,14 +332,20 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
     return { field, value: config?.value };
   }
 
-  if (nodeType === "add_to_segment") {
-    await supabase.from("segment_contacts").insert({ contact_id: contactId, segment_id: config?.segment_id });
-    return { segment_id: config?.segment_id };
-  }
+  if (nodeType === "add_to_segment" || nodeType === "remove_from_segment") {
+    let segmentId = config?.segment_id;
+    if (!segmentId && config?.segment_name) {
+      const { data: seg } = await supabase.from("segments").select("id").eq("name", config.segment_name).eq("user_id", userId).single();
+      segmentId = seg?.id;
+    }
+    if (!segmentId) throw new Error(`Segment not found: ${config?.segment_name || config?.segment_id}`);
 
-  if (nodeType === "remove_from_segment") {
-    await supabase.from("segment_contacts").delete().eq("contact_id", contactId).eq("segment_id", config?.segment_id);
-    return { segment_id: config?.segment_id };
+    if (nodeType === "add_to_segment") {
+      await supabase.from("segment_contacts").upsert({ contact_id: contactId, segment_id: segmentId }, { onConflict: "contact_id,segment_id", ignoreDuplicates: true });
+    } else {
+      await supabase.from("segment_contacts").delete().eq("contact_id", contactId).eq("segment_id", segmentId);
+    }
+    return { segment_id: segmentId };
   }
 
   return {};
