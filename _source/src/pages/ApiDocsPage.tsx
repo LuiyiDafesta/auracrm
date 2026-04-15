@@ -292,6 +292,25 @@ export default function ApiDocsPage() {
             baseUrl={baseUrl}
           />
 
+          <EndpointDoc method="GET" path="/v1/contacts/search" description="Buscar contactos por cualquier campo estándar o personalizado. Múltiples parámetros actúan como AND." permission="contacts:read"
+            params={[
+              { name: '(campo estándar)', desc: 'email, phone, first_name, last_name, position, status, lead_score, etc.' },
+              { name: '(campo personalizado)', desc: 'Nombre exacto del campo personalizado (ej: token, pais, smartscoring)' },
+              { name: 'like', desc: 'true para búsqueda parcial (LIKE %valor%), default: coincidencia exacta' },
+              { name: 'page', desc: 'Página (default: 1)' },
+              { name: 'per_page', desc: 'Resultados por página (max 100, default: 50)' },
+            ]}
+            example={`# Buscar por email exacto:
+curl -H "x-api-key: KEY" "${baseUrl}/public-api/v1/contacts/search?email=juan@email.com"
+
+# Buscar por campo personalizado:
+curl -H "x-api-key: KEY" "${baseUrl}/public-api/v1/contacts/search?token=abc123"
+
+# Buscar parcial por nombre + campo custom:
+curl -H "x-api-key: KEY" "${baseUrl}/public-api/v1/contacts/search?first_name=Jua&pais=Argentina&like=true"`}
+            baseUrl={baseUrl}
+          />
+
           <EndpointDoc method="GET" path="/v1/contacts/:id" description="Obtener contacto con tags, segmentos y campos personalizados integrados" permission="contacts:read"
             response={`{
   "data": {

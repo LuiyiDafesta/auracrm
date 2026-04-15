@@ -229,6 +229,117 @@ async function handleContacts(
         });
       }
 
+      // ── Search across any field ──────────────────────────
+      if (resourceId === "search") {
+        const standardFields = [
+          "first_name", "last_name", "email", "phone",
+          "position", "status", "notes", "company_id", "lead_score",
+        ];
+        const useLike = url.searchParams.get("like") === "true";
+
+        // Separate standard vs custom field filters
+        const stdFilters: [string, string][] = [];
+        const cfFilters: [string, string][] = [];
+        const cfNameToId = new Map(
+          cfDefs.map((f: any) => [f.name.toLowerCase().trim(), f.id])
+        );
+        const reserved = ["page", "per_page", "like"];
+
+        for (const [key, val] of url.searchParams.entries()) {
+          if (reserved.includes(key)) continue;
+          if (standardFields.includes(key)) {
+            stdFilters.push([key, val]);
+          } else {
+            const cfId = cfNameToId.get(key.toLowerCase().trim());
+            if (cfId) cfFilters.push([cfId, val]);
+          }
+        }
+
+        if (stdFilters.length === 0 && cfFilters.length === 0) {
+          return jsonResponse(
+            { error: "Provide at least one search parameter (e.g. ?email=test@email.com or ?token=abc)" },
+            400
+          );
+        }
+
+        // If we have custom field filters, find matching contact IDs first
+        let cfContactIds: string[] | null = null;
+        if (cfFilters.length > 0) {
+          // For each CF filter, get matching contact IDs and intersect
+          for (const [fieldId, val] of cfFilters) {
+            let q = db
+              .from("contact_custom_values")
+              .select("contact_id")
+              .eq("custom_field_id", fieldId);
+
+            if (useLike) {
+              q = q.ilike("value", `%${val}%`);
+            } else {
+              q = q.eq("value", val);
+            }
+
+            const { data: matches } = await q;
+            const ids = (matches || []).map((m: any) => m.contact_id);
+
+            if (cfContactIds === null) {
+              cfContactIds = ids;
+            } else {
+              cfContactIds = cfContactIds.filter((id) => ids.includes(id));
+            }
+
+            if (cfContactIds.length === 0) {
+              return jsonResponse({ data: [], total: 0 });
+            }
+          }
+        }
+
+        // Build the main query
+        const page = parseInt(url.searchParams.get("page") || "1");
+        const perPage = Math.min(
+          parseInt(url.searchParams.get("per_page") || "50"),
+          100
+        );
+
+        let query = db
+          .from("contacts")
+          .select(
+            "*, contact_tags(tag_id, tags(id, name, color)), segment_contacts(segment_id, segments(id, name))",
+            { count: "exact" }
+          )
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .range((page - 1) * perPage, page * perPage - 1);
+
+        // Apply standard field filters
+        for (const [field, val] of stdFilters) {
+          if (useLike) {
+            query = query.ilike(field, `%${val}%`);
+          } else {
+            query = query.eq(field, val);
+          }
+        }
+
+        // Apply CF contact ID filter
+        if (cfContactIds !== null) {
+          query = query.in("id", cfContactIds);
+        }
+
+        const { data, error, count } = await query;
+        if (error) return jsonResponse({ error: error.message }, 500);
+
+        const enriched = await enrichContacts(db, data || [], cfDefs);
+
+        return jsonResponse({
+          data: enriched,
+          pagination: {
+            page,
+            per_page: perPage,
+            total: count || 0,
+            total_pages: Math.ceil((count || 0) / perPage),
+          },
+        });
+      }
+
       // ── Single contact ────────────────────────────────────
       if (resourceId) {
         const { data, error } = await db
