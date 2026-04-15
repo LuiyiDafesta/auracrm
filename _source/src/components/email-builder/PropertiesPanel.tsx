@@ -108,9 +108,18 @@ export function PropertiesPanel({ block, onUpdate, canvasSelected, canvasSetting
       {/* Variables */}
       <div className="space-y-1">
         <Label className="text-xs">Variables disponibles</Label>
+        <p className="text-[10px] text-muted-foreground">Haz clic para insertar en el bloque seleccionado</p>
         <div className="flex flex-wrap gap-1">
           {VARIABLE_LIST.map((v) => (
-            <Badge key={v.value} variant="outline" className="text-[10px] cursor-pointer hover:bg-accent" onClick={() => navigator.clipboard.writeText(v.value)}>
+            <Badge key={v.value} variant="outline" className="text-[10px] cursor-pointer hover:bg-accent active:scale-95 transition-transform" onClick={() => {
+              if (block.type === 'text' || block.type === 'heading') {
+                update('content', (p.content || '') + v.value);
+              } else if (block.type === 'button') {
+                update('text', (p.text || '') + v.value);
+              } else {
+                navigator.clipboard.writeText(v.value);
+              }
+            }}>
               {v.label}
             </Badge>
           ))}

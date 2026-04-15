@@ -40,6 +40,8 @@ export default function EmailBuilderPage() {
   const [showCode, setShowCode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [htmlSource, setHtmlSource] = useState('');
+  const [htmlMode, setHtmlMode] = useState(false);
 
   // Find the selected block — could be top-level or a child inside columns
   const getSelectedBlock = (): EmailBlock | null => {
@@ -300,12 +302,37 @@ export default function EmailBuilderPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Code Dialog */}
-      <Dialog open={showCode} onOpenChange={setShowCode}>
+      {/* Code Dialog — editable HTML */}
+      <Dialog open={showCode} onOpenChange={(open) => { setShowCode(open); if (open) { setHtmlSource(blocksToHtml(blocks, previewWidth)); setHtmlMode(false); } }}>
         <DialogContent className="max-w-3xl max-h-[85vh]">
-          <DialogHeader><DialogTitle>Código HTML</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Código HTML</span>
+              <div className="flex gap-2">
+                <Button variant={htmlMode ? 'default' : 'outline'} size="sm" onClick={() => setHtmlMode(!htmlMode)}>
+                  {htmlMode ? 'Vista código' : 'Editar HTML'}
+                </Button>
+                {htmlMode && (
+                  <Button size="sm" onClick={() => {
+                    setBlocks([{ id: crypto.randomUUID(), type: 'text', props: { ...defaultBlockProps.text, content: htmlSource } }]);
+                    setShowCode(false);
+                    toast({ title: 'HTML importado', description: 'El HTML se cargó como bloque de texto editable.' });
+                  }}>Aplicar HTML</Button>
+                )}
+              </div>
+            </DialogTitle>
+          </DialogHeader>
           <ScrollArea className="h-[65vh]">
-            <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded">{blocksToHtml(blocks, previewWidth)}</pre>
+            {htmlMode ? (
+              <textarea
+                className="w-full h-[60vh] text-xs font-mono bg-muted p-4 rounded border resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                value={htmlSource}
+                onChange={(e) => setHtmlSource(e.target.value)}
+                spellCheck={false}
+              />
+            ) : (
+              <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded">{blocksToHtml(blocks, previewWidth)}</pre>
+            )}
           </ScrollArea>
         </DialogContent>
       </Dialog>
