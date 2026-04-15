@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Pencil, Trash2, Filter, X, CalendarIcon, Users, Tag, ChevronDown, Upload } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Filter, X, CalendarIcon, Users, Tag, ChevronDown, Upload, Download } from 'lucide-react';
 import { ImportContactsDialog } from '@/components/ImportContactsDialog';
 import { TagManager } from '@/components/TagManager';
 import { TablePagination } from '@/components/TablePagination';
@@ -234,6 +234,33 @@ export default function Contacts() {
     fetchData();
   };
 
+  const exportCSV = () => {
+    const headers = ['Nombre', 'Apellido', 'Email', 'Teléfono', 'Cargo', 'Estado', 'Empresa', 'Lead Score', 'Segmentos', 'Etiquetas', 'Creado'];
+    const rows = filtered.map(c => [
+      c.first_name,
+      c.last_name || '',
+      c.email,
+      c.phone || '',
+      c.position || '',
+      c.status,
+      getCompanyName(c.company_id),
+      String(c.lead_score),
+      (contactSegments[c.id] || []).map(s => s.name).join('; '),
+      (contactTagIds[c.id] || []).map(tid => tags.find(t => t.id === tid)?.name || '').filter(Boolean).join('; '),
+      new Date(c.created_at).toLocaleDateString('es-AR'),
+    ]);
+    const escape = (v: string) => v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g, '""')}"` : v;
+    const csv = [headers.join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `contactos_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: `${filtered.length} contactos exportados` });
+  };
+
   const getCompanyName = (id: string | null) => companies.find(c => c.id === id)?.name || '—';
 
   return (
@@ -247,6 +274,9 @@ export default function Contacts() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={exportCSV}>
+            <Download className="h-4 w-4 mr-2" />Exportar CSV
+          </Button>
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />Importar CSV
           </Button>
