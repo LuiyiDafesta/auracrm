@@ -246,6 +246,10 @@ export default function Contacts() {
             {filtered.length !== contacts.length && ` (de ${contacts.length} total)`}
           </p>
         </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />Importar CSV
+          </Button>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ first_name: '', last_name: '', email: '', phone: '', position: '', company_id: '', status: 'activo', notes: '' }); } }}>
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" />Nuevo Contacto</Button>
