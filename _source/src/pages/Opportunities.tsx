@@ -67,7 +67,7 @@ export default function Opportunities() {
     const [o, s, c, co] = await Promise.all([
       supabase.from('opportunities').select('*').order('created_at', { ascending: false }),
       supabase.from('opportunity_stages').select('*').order('sort_order'),
-      supabase.from('contacts').select('id, first_name, last_name'),
+      supabase.from('contacts').select('id, first_name, last_name, email'),
       supabase.from('companies').select('id, name'),
     ]);
     setOpportunities((o.data as any[]) || []);
@@ -183,23 +183,40 @@ export default function Opportunities() {
     const c = contacts.find(c => c.id === id);
     return c ? `${c.first_name} ${c.last_name || ''}`.trim() : null;
   };
+  const getContactEmail = (id: string | null) => {
+    if (!id) return null;
+    const c = contacts.find(c => c.id === id);
+    return c?.email || null;
+  };
   const getCompanyName = (id: string | null) => {
     if (!id) return null;
     const c = companies.find(c => c.id === id);
     return c?.name || null;
   };
 
+  const wonStage = stages.find(s => s.name.toLowerCase().includes('ganado'));
+  const lostStage = stages.find(s => s.name.toLowerCase().includes('perdido'));
+
   const totalPipeline = opportunities.filter(o => {
-    const lostStage = stages.find(s => s.name.toLowerCase().includes('perdido'));
-    return !lostStage || o.stage !== lostStage.name;
+    return (!wonStage || o.stage !== wonStage.name) && (!lostStage || o.stage !== lostStage.name);
   }).reduce((s, o) => s + (Number(o.value) || 0), 0);
+
+  const totalWon = opportunities.filter(o => wonStage && o.stage === wonStage.name).reduce((s, o) => s + (Number(o.value) || 0), 0);
+  const totalLost = opportunities.filter(o => lostStage && o.stage === lostStage.name).length;
+  const wonCount = opportunities.filter(o => wonStage && o.stage === wonStage.name).length;
+  const activeCount = opportunities.filter(o => (!wonStage || o.stage !== wonStage.name) && (!lostStage || o.stage !== lostStage.name)).length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Oportunidades</h1>
-          <p className="text-muted-foreground">Pipeline: <strong>${totalPipeline.toLocaleString()}</strong> · {opportunities.length} oportunidades</p>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span>Pipeline: <strong className="text-foreground">${totalPipeline.toLocaleString()}</strong></span>
+            <span className="text-green-600">Ganadas: <strong>${totalWon.toLocaleString()}</strong> ({wonCount})</span>
+            <span className="text-red-500">Perdidas: <strong>{totalLost}</strong></span>
+            <span>{activeCount} activas · {opportunities.length} total</span>
+          </div>
         </div>
         <div className="flex gap-2">
           {/* Stage config dialog */}
@@ -354,7 +371,13 @@ export default function Opportunities() {
                                 <div className="space-y-1">
                                   {contactName && (
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => o.contact_id && navigate(`/contactos/${o.contact_id}`)}>
-                                      <User className="h-3 w-3 shrink-0" /><span className="truncate">{contactName}</span>
+                                      <User className="h-3 w-3 shrink-0" />
+                                      <div className="truncate">
+                                        <span>{contactName}</span>
+                                        {getContactEmail(o.contact_id) && (
+                                          <span className="block text-[10px] opacity-70 truncate">{getContactEmail(o.contact_id)}</span>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
                                   {companyName && (
