@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, Pencil, Trash2, Calendar, User, Building2, DollarSign, Settings, GripVertical, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar, User, Building2, DollarSign, Settings, GripVertical, X, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface Stage {
@@ -61,6 +61,10 @@ export default function Opportunities() {
   const [form, setForm] = useState({ name: '', value: '', stage: '', expected_close_date: '', probability: '', contact_id: '', company_id: '', notes: '' });
   const [newStageName, setNewStageName] = useState('');
   const [newStageColor, setNewStageColor] = useState('#3B82F6');
+  const [searchFilter, setSearchFilter] = useState('');
+  const [cardsPerColumn, setCardsPerColumn] = useState(20);
+  const [collapsedStages, setCollapsedStages] = useState<string[]>([]);
+  const [expandedStages, setExpandedStages] = useState<string[]>([]);
 
   const fetchData = async () => {
     if (!user) return;
@@ -305,13 +309,48 @@ export default function Opportunities() {
           </Dialog>
         </div>
       </div>
+      {/* Search filter */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Buscar oportunidades..." value={searchFilter} onChange={e => setSearchFilter(e.target.value)} />
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Mostrar por columna:</span>
+          <select className="border rounded px-2 py-1 bg-background text-xs" value={cardsPerColumn} onChange={e => setCardsPerColumn(Number(e.target.value))}>
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+      </div>
 
       {/* Kanban Board */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 'calc(100vh - 12rem)' }}>
+        <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 'calc(100vh - 14rem)' }}>
           {stages.map(stage => {
-            const stageOpps = opportunities.filter(o => o.stage === stage.name);
-            const total = stageOpps.reduce((s, o) => s + (Number(o.value) || 0), 0);
+            const isClosedStage = stage.name.toLowerCase().includes('ganado') || stage.name.toLowerCase().includes('perdido');
+            const isCollapsed = collapsedStages.includes(stage.id);
+            const allStageOpps = opportunities.filter(o => o.stage === stage.name);
+            const stageOpps = allStageOpps.filter(o =>
+              !searchFilter || `${o.name} ${getContactName(o.contact_id) || ''} ${getContactEmail(o.contact_id) || ''} ${getCompanyName(o.company_id) || ''}`.toLowerCase().includes(searchFilter.toLowerCase())
+            );
+            const visibleOpps = stageOpps.slice(0, expandedStages.includes(stage.id) ? stageOpps.length : cardsPerColumn);
+            const hiddenCount = stageOpps.length - visibleOpps.length;
+            const total = allStageOpps.reduce((s, o) => s + (Number(o.value) || 0), 0);
+
+            if (isCollapsed) {
+              return (
+                <div key={stage.id} className="flex-shrink-0 w-12 flex flex-col cursor-pointer" onClick={() => setCollapsedStages(prev => prev.filter(id => id !== stage.id))}>
+                  <div className="rounded-lg px-2 py-3 flex flex-col items-center gap-2 h-full" style={{ backgroundColor: `${stage.color}15`, borderLeft: `3px solid ${stage.color}` }}>
+                    <Badge variant="secondary" className="text-[10px] h-5">{allStageOpps.length}</Badge>
+                    <span className="text-[10px] font-medium writing-vertical" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>{stage.name}</span>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={stage.id} className="flex-shrink-0 w-64 flex flex-col">
                 <div className="rounded-t-lg px-3 py-2" style={{ backgroundColor: `${stage.color}15` }}>
@@ -320,7 +359,14 @@ export default function Opportunities() {
                       <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: stage.color }} />
                       <h3 className="font-semibold text-sm">{stage.name}</h3>
                     </div>
-                    <Badge variant="secondary" className="text-[10px] h-5">{stageOpps.length}</Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="secondary" className="text-[10px] h-5">{allStageOpps.length}</Badge>
+                      {isClosedStage && (
+                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setCollapsedStages(prev => [...prev, stage.id])}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground">${total.toLocaleString()}</p>
                 </div>
@@ -330,9 +376,10 @@ export default function Opportunities() {
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className={`flex-1 rounded-b-lg border border-t-0 p-2 space-y-2 transition-colors ${snapshot.isDraggingOver ? 'bg-accent/50' : 'bg-muted/30'}`}
+                      className={`flex-1 rounded-b-lg border border-t-0 p-2 space-y-2 transition-colors overflow-y-auto ${snapshot.isDraggingOver ? 'bg-accent/50' : 'bg-muted/30'}`}
+                      style={{ maxHeight: 'calc(100vh - 18rem)' }}
                     >
-                      {stageOpps.map((o, index) => {
+                      {visibleOpps.map((o, index) => {
                         const contactName = getContactName(o.contact_id);
                         const companyName = getCompanyName(o.company_id);
                         return (
@@ -399,6 +446,24 @@ export default function Opportunities() {
                         );
                       })}
                       {provided.placeholder}
+                      {hiddenCount > 0 && (
+                        <Button
+                          variant="outline" size="sm"
+                          className="w-full text-xs"
+                          onClick={() => setExpandedStages(prev => [...prev, stage.id])}
+                        >
+                          Ver {hiddenCount} más
+                        </Button>
+                      )}
+                      {expandedStages.includes(stage.id) && stageOpps.length > cardsPerColumn && (
+                        <Button
+                          variant="ghost" size="sm"
+                          className="w-full text-xs text-muted-foreground"
+                          onClick={() => setExpandedStages(prev => prev.filter(id => id !== stage.id))}
+                        >
+                          Colapsar
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground hover:text-foreground mt-1" onClick={() => openCreateInStage(stage.name)}>
                         <Plus className="h-3 w-3 mr-1" /> Agregar
                       </Button>
