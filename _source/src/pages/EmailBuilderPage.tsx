@@ -42,6 +42,15 @@ export default function EmailBuilderPage() {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [htmlSource, setHtmlSource] = useState('');
   const [htmlMode, setHtmlMode] = useState(false);
+  const [customFieldVars, setCustomFieldVars] = useState<{label: string; value: string}[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      supabase.from('custom_fields').select('name').eq('user_id', user.id).order('sort_order').then(({ data }) => {
+        if (data) setCustomFieldVars(data.map((f: any) => ({ label: f.name, value: `{{${f.name}}}` })));
+      });
+    }
+  }, [user]);
 
   // Find the selected block — could be top-level or a child inside columns
   const getSelectedBlock = (): EmailBlock | null => {
@@ -289,6 +298,7 @@ export default function EmailBuilderPage() {
               canvasSelected={canvasSelected && !selectedBlockId}
               canvasSettings={canvasSettings}
               onUpdateCanvas={setCanvasSettings}
+              customFieldVars={customFieldVars}
             />
           </ScrollArea>
         </div>

@@ -19,9 +19,10 @@ interface PropertiesPanelProps {
   canvasSelected?: boolean;
   canvasSettings?: CanvasSettings;
   onUpdateCanvas?: (settings: CanvasSettings) => void;
+  customFieldVars?: { label: string; value: string }[];
 }
 
-export function PropertiesPanel({ block, onUpdate, canvasSelected, canvasSettings, onUpdateCanvas }: PropertiesPanelProps) {
+export function PropertiesPanel({ block, onUpdate, canvasSelected, canvasSettings, onUpdateCanvas, customFieldVars = [] }: PropertiesPanelProps) {
   if (!block && canvasSelected && canvasSettings && onUpdateCanvas) {
     return (
       <div className="space-y-4 p-1">
@@ -124,6 +125,26 @@ export function PropertiesPanel({ block, onUpdate, canvasSelected, canvasSetting
             </Badge>
           ))}
         </div>
+        {customFieldVars.length > 0 && (
+          <>
+            <Label className="text-xs mt-2">Campos personalizados</Label>
+            <div className="flex flex-wrap gap-1">
+              {customFieldVars.map((v) => (
+                <Badge key={v.value} variant="secondary" className="text-[10px] cursor-pointer hover:bg-accent active:scale-95 transition-transform" onClick={() => {
+                  if (block.type === 'text' || block.type === 'heading') {
+                    update('content', (p.content || '') + v.value);
+                  } else if (block.type === 'button') {
+                    update('text', (p.text || '') + v.value);
+                  } else {
+                    navigator.clipboard.writeText(v.value);
+                  }
+                }}>
+                  {v.label}
+                </Badge>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {block.type === 'heading' && (
