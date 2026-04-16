@@ -405,6 +405,20 @@ async function executeAction(data: any, contactId: string, userId: string): Prom
     return { segment_id: segmentId };
   }
 
+  if (nodeType === "create_opportunity") {
+    const oppData = {
+      name: config?.opp_name || "Oportunidad Automática",
+      value: config?.opp_value || 0,
+      stage: config?.opp_stage || "Prospecto",
+      probability: config?.opp_probability || 0,
+      contact_id: contactId,
+      user_id: userId,
+    };
+    const { data: opp, error } = await supabase.from("opportunities").insert(oppData).select().single();
+    if (error) throw new Error(`Error creando oportunidad: ${error.message}`);
+    return { created_opportunity_id: opp.id, stage: opp.stage };
+  }
+
   return {};
 }
 

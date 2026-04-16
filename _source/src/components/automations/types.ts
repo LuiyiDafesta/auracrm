@@ -21,6 +21,7 @@ export const ACTION_TYPES = [
   { value: 'add_to_segment', label: 'Agregar a segmento', icon: '📋', color: '#14B8A6' },
   { value: 'remove_from_segment', label: 'Quitar de segmento', icon: '📋', color: '#DC2626' },
   { value: 'webhook_outgoing', label: 'Enviar webhook', icon: '🔗', color: '#7C3AED' },
+  { value: 'create_opportunity', label: 'Crear oportunidad', icon: '💰', color: '#16A34A' },
 ] as const;
 
 export const CONDITION_TYPES = [

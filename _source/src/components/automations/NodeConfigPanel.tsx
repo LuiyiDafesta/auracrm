@@ -18,11 +18,13 @@ export function NodeConfigPanel({ node, onUpdate, onDelete }: Props) {
   const [tags, setTags] = useState<any[]>([]);
   const [segments, setSegments] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
+  const [opportunityStages, setOpportunityStages] = useState<any[]>([]);
 
   useEffect(() => {
     supabase.from('tags').select('id, name').then(({ data }) => setTags(data || []));
     supabase.from('segments').select('id, name').then(({ data }) => setSegments(data || []));
     supabase.from('email_templates').select('id, name, subject').then(({ data }) => setTemplates(data || []));
+    supabase.from('opportunity_stages').select('id, name').order('sort_order').then(({ data }) => setOpportunityStages(data || []));
   }, []);
 
   const config = node.data.config || {};
@@ -256,6 +258,33 @@ export function NodeConfigPanel({ node, onUpdate, onDelete }: Props) {
           <label className="text-xs font-medium">Body adicional (JSON, opcional)</label>
           <Textarea value={config.body_extra || ''} onChange={e => updateConfig('body_extra', e.target.value)} placeholder='{"custom_field": "valor"}' className="font-mono text-xs" rows={3} />
           <p className="text-xs text-muted-foreground">Se enviarán automáticamente los datos del contacto junto con el body adicional.</p>
+        </div>
+      )}
+
+      {/* Create Opportunity */}
+      {nodeType === 'create_opportunity' && isAction && (
+        <div className="space-y-2">
+          <label className="text-xs font-medium">Nombre de la oportunidad</label>
+          <Input value={config.opp_name || ''} onChange={e => updateConfig('opp_name', e.target.value)} placeholder="Ej. Venta Automática" />
+          
+          <label className="text-xs font-medium">Etapa destino</label>
+          <Select value={config.opp_stage || ''} onValueChange={v => updateConfig('opp_stage', v)}>
+            <SelectTrigger><SelectValue placeholder="Seleccionar etapa" /></SelectTrigger>
+            <SelectContent>
+              {opportunityStages.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Valor ($)</label>
+              <Input type="number" value={config.opp_value || 0} onChange={e => updateConfig('opp_value', parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Probabilidad (%)</label>
+              <Input type="number" min="0" max="100" value={config.opp_probability || 0} onChange={e => updateConfig('opp_probability', parseInt(e.target.value) || 0)} />
+            </div>
+          </div>
         </div>
       )}
     </div>

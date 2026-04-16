@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, Pencil, Trash2, Calendar, User, Building2, DollarSign, Settings, GripVertical, X, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar, User, Building2, DollarSign, Settings, GripVertical, X, Search, Archive, ArchiveRestore } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Switch } from '@/components/ui/switch';
 
 interface Stage {
   id: string;
@@ -32,6 +33,7 @@ interface Opportunity {
   company_id: string | null;
   notes: string | null;
   user_id: string;
+  is_archived?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -65,6 +67,7 @@ export default function Opportunities() {
   const [cardsPerColumn, setCardsPerColumn] = useState(20);
   const [collapsedStages, setCollapsedStages] = useState<string[]>([]);
   const [expandedStages, setExpandedStages] = useState<string[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
@@ -124,6 +127,16 @@ export default function Opportunities() {
   const handleDelete = async (id: string) => {
     await supabase.from('opportunities').delete().eq('id', id);
     toast({ title: 'Oportunidad eliminada' });
+    fetchData();
+  };
+
+  const handleToggleArchive = async (id: string, currentArchived: boolean) => {
+    const { error } = await supabase.from('opportunities').update({ is_archived: !currentArchived }).eq('id', id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: currentArchived ? 'Oportunidad restituida' : 'Oportunidad archivada' });
     fetchData();
   };
 
@@ -201,14 +214,16 @@ export default function Opportunities() {
   const wonStage = stages.find(s => s.name.toLowerCase().includes('ganado'));
   const lostStage = stages.find(s => s.name.toLowerCase().includes('perdido'));
 
-  const totalPipeline = opportunities.filter(o => {
+  const viewOpps = opportunities.filter(o => !!o.is_archived === showArchived);
+
+  const totalPipeline = viewOpps.filter(o => {
     return (!wonStage || o.stage !== wonStage.name) && (!lostStage || o.stage !== lostStage.name);
   }).reduce((s, o) => s + (Number(o.value) || 0), 0);
 
-  const totalWon = opportunities.filter(o => wonStage && o.stage === wonStage.name).reduce((s, o) => s + (Number(o.value) || 0), 0);
-  const totalLost = opportunities.filter(o => lostStage && o.stage === lostStage.name).length;
-  const wonCount = opportunities.filter(o => wonStage && o.stage === wonStage.name).length;
-  const activeCount = opportunities.filter(o => (!wonStage || o.stage !== wonStage.name) && (!lostStage || o.stage !== lostStage.name)).length;
+  const totalWon = viewOpps.filter(o => wonStage && o.stage === wonStage.name).reduce((s, o) => s + (Number(o.value) || 0), 0);
+  const totalLost = viewOpps.filter(o => lostStage && o.stage === lostStage.name).length;
+  const wonCount = viewOpps.filter(o => wonStage && o.stage === wonStage.name).length;
+  const activeCount = viewOpps.filter(o => (!wonStage || o.stage !== wonStage.name) && (!lostStage || o.stage !== lostStage.name)).length;
 
   return (
     <div className="space-y-4">
@@ -219,7 +234,7 @@ export default function Opportunities() {
             <span>Pipeline: <strong className="text-foreground">${totalPipeline.toLocaleString()}</strong></span>
             <span className="text-green-600">Ganadas: <strong>${totalWon.toLocaleString()}</strong> ({wonCount})</span>
             <span className="text-red-500">Perdidas: <strong>{totalLost}</strong></span>
-            <span>{activeCount} activas · {opportunities.length} total</span>
+            <span>{activeCount} activas · {viewOpps.length} total</span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -315,9 +330,16 @@ export default function Opportunities() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="Buscar oportunidades..." value={searchFilter} onChange={e => setSearchFilter(e.target.value)} />
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Mostrar por columna:</span>
-          <select className="border rounded px-2 py-1 bg-background text-xs" value={cardsPerColumn} onChange={e => setCardsPerColumn(Number(e.target.value))}>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Switch id="archive-mode" checked={showArchived} onCheckedChange={setShowArchived} />
+            <label htmlFor="archive-mode" className="text-xs font-medium cursor-pointer">
+              {showArchived ? 'Viendo archivadas' : 'Ver archivadas'}
+            </label>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground border-l pl-3">
+            <span>Mostrar:</span>
+            <select className="border rounded px-2 py-1 bg-background text-xs" value={cardsPerColumn} onChange={e => setCardsPerColumn(Number(e.target.value))}>
             <option value={10}>10</option>
             <option value={20}>20</option>
             <option value={50}>50</option>
@@ -332,7 +354,7 @@ export default function Opportunities() {
           {stages.map(stage => {
             const isClosedStage = stage.name.toLowerCase().includes('ganado') || stage.name.toLowerCase().includes('perdido');
             const isCollapsed = collapsedStages.includes(stage.id);
-            const allStageOpps = opportunities.filter(o => o.stage === stage.name);
+            const allStageOpps = viewOpps.filter(o => o.stage === stage.name);
             const stageOpps = allStageOpps.filter(o =>
               !searchFilter || `${o.name} ${getContactName(o.contact_id) || ''} ${getContactEmail(o.contact_id) || ''} ${getCompanyName(o.company_id) || ''}`.toLowerCase().includes(searchFilter.toLowerCase())
             );
@@ -395,6 +417,9 @@ export default function Opportunities() {
                                 <div className="flex items-start justify-between mb-2">
                                   <p className="font-medium text-sm leading-tight">{o.name}</p>
                                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1">
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleToggleArchive(o.id, !!o.is_archived); }} title={showArchived ? "Restituir" : "Archivar"}>
+                                      {showArchived ? <ArchiveRestore className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
+                                    </Button>
                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openEdit(o); }}>
                                       <Pencil className="h-3 w-3" />
                                     </Button>

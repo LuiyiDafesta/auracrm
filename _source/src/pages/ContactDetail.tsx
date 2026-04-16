@@ -44,14 +44,16 @@ export default function ContactDetail() {
   const [showHidden, setShowHidden] = useState(false);
   const [leadScore, setLeadScore] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [activities, setActivities] = useState<any[]>([]);
 
   const fetchAll = async () => {
     if (!user || !id) return;
-    const [cRes, cfRes, cvRes, coRes] = await Promise.all([
+    const [cRes, cfRes, cvRes, coRes, actRes] = await Promise.all([
       supabase.from('contacts').select('*').eq('id', id).single(),
       supabase.from('custom_fields').select('*').order('sort_order'),
       supabase.from('contact_custom_values').select('*').eq('contact_id', id),
       supabase.from('companies').select('*').order('name'),
+      supabase.from('activities').select('*').eq('contact_id', id).order('created_at', { ascending: false }),
     ]);
     if (cRes.data) {
       setContact(cRes.data);
@@ -67,6 +69,7 @@ export default function ContactDetail() {
     const vals: Record<string, string> = {};
     (cvRes.data || []).forEach((v: any) => { vals[v.custom_field_id] = v.value || ''; });
     setCustomValues(vals);
+    setActivities(actRes.data || []);
   };
 
   useEffect(() => { fetchAll(); }, [user, id]);
@@ -362,6 +365,33 @@ export default function ContactDetail() {
           </CardContent>
         </Card>
       )}
+
+      {/* Activity Timeline */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Historial de Actividad</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {activities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay registro de actividad para este contacto.</p>
+          ) : (
+            <div className="space-y-4">
+              {activities.map(activity => (
+                <div key={activity.id} className="relative flex items-start gap-4 pb-4 border-l-2 border-muted last:border-transparent ml-2">
+                  <div className="absolute -left-[5px] mt-1.5 h-2 w-2 rounded-full ring-4 ring-background bg-primary"></div>
+                  <div className="pl-6 space-y-1 w-full">
+                    <p className="text-sm font-medium">{activity.type}</p>
+                    <p className="text-sm text-muted-foreground">{activity.description}</p>
+                    <time className="text-[10px] text-muted-foreground uppercase opacity-80 font-medium">
+                      {new Date(activity.created_at).toLocaleString('es-ES')}
+                    </time>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

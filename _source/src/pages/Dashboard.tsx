@@ -13,19 +13,25 @@ export default function Dashboard() {
     if (!user) return;
 
     const fetchStats = async () => {
-      const [contactsRes, oppsRes, tasksRes, revenueRes, activitiesRes] = await Promise.all([
+      const [contactsRes, oppsRes, tasksRes, stagesRes, activitiesRes] = await Promise.all([
         supabase.from('contacts').select('id', { count: 'exact', head: true }),
-        supabase.from('opportunities').select('id', { count: 'exact', head: true }).not('stage', 'in', '(cerrado_ganado,cerrado_perdido)'),
+        supabase.from('opportunities').select('id, stage, value, is_archived'),
         supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'pendiente'),
-        supabase.from('opportunities').select('value').eq('stage', 'cerrado_ganado'),
-        supabase.from('activities').select('*').order('created_at', { ascending: false }).limit(5),
+        supabase.from('opportunity_stages').select('name'),
+        supabase.from('activities').select('*').order('created_at', { ascending: false }).limit(10),
       ]);
 
-      const totalRevenue = (revenueRes.data || []).reduce((sum, o) => sum + (Number(o.value) || 0), 0);
+      const stages = (stagesRes.data || []).map(s => s.name);
+      const wonStages = stages.filter(name => name.toLowerCase().includes('ganado'));
+      const lostStages = stages.filter(name => name.toLowerCase().includes('perdido'));
+
+      const opps = oppsRes.data || [];
+      const activeOppsCount = opps.filter(o => !o.is_archived && !wonStages.includes(o.stage) && !lostStages.includes(o.stage)).length;
+      const totalRevenue = opps.filter(o => wonStages.includes(o.stage)).reduce((sum, o) => sum + (Number(o.value) || 0), 0);
 
       setStats({
         contacts: contactsRes.count || 0,
-        opportunities: oppsRes.count || 0,
+        opportunities: activeOppsCount,
         tasks: tasksRes.count || 0,
         revenue: totalRevenue,
       });
