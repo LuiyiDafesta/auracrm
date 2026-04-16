@@ -11,11 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TagManager } from '@/components/TagManager';
 import { useToast } from '@/hooks/use-toast';
 import {
   ArrowLeft, Camera, Mail, Phone, Briefcase, Building2,
-  Calendar, Globe, ChevronDown, ChevronUp, Save, Pencil, EyeOff,
+  Calendar, Globe, ChevronDown, ChevronUp, Save, Pencil, EyeOff, Plus, Minus, DollarSign
 } from 'lucide-react';
 
 interface CustomField {
@@ -45,15 +46,19 @@ export default function ContactDetail() {
   const [leadScore, setLeadScore] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [activities, setActivities] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transForm, setTransForm] = useState({ amount: '', type: 'ingreso', description: '' });
+  const [addingTrans, setAddingTrans] = useState(false);
 
   const fetchAll = async () => {
     if (!user || !id) return;
-    const [cRes, cfRes, cvRes, coRes, actRes] = await Promise.all([
+    const [cRes, cfRes, cvRes, coRes, actRes, transRes] = await Promise.all([
       supabase.from('contacts').select('*').eq('id', id).single(),
       supabase.from('custom_fields').select('*').order('sort_order'),
       supabase.from('contact_custom_values').select('*').eq('contact_id', id),
       supabase.from('companies').select('*').order('name'),
       supabase.from('activities').select('*').eq('contact_id', id).order('created_at', { ascending: false }),
+      supabase.from('contact_transactions').select('*').eq('contact_id', id).order('created_at', { ascending: false }),
     ]);
     if (cRes.data) {
       setContact(cRes.data);
@@ -366,32 +371,87 @@ export default function ContactDetail() {
         </Card>
       )}
 
-      {/* Activity Timeline */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Historial de Actividad</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {activities.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hay registro de actividad para este contacto.</p>
-          ) : (
-            <div className="space-y-4">
-              {activities.map(activity => (
-                <div key={activity.id} className="relative flex items-start gap-4 pb-4 border-l-2 border-muted last:border-transparent ml-2">
-                  <div className="absolute -left-[5px] mt-1.5 h-2 w-2 rounded-full ring-4 ring-background bg-primary"></div>
-                  <div className="pl-6 space-y-1 w-full">
-                    <p className="text-sm font-medium">{activity.type}</p>
-                    <p className="text-sm text-muted-foreground">{activity.description}</p>
-                    <time className="text-[10px] text-muted-foreground uppercase opacity-80 font-medium">
-                      {new Date(activity.created_at).toLocaleString('es-ES')}
-                    </time>
+      {/* Tabs section for Data */}
+      <Tabs defaultValue="activity" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="activity">Historial de Actividad</TabsTrigger>
+          <TabsTrigger value="transactions">Cuenta Corriente</TabsTrigger>
+        </TabsList>
+        <TabsContent value="activity">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Historial de Actividad</CardTitle></CardHeader>
+            <CardContent>
+              {activities.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay registro de actividad.</p>
+              ) : (
+                <div className="space-y-4">
+                  {activities.map(activity => (
+                    <div key={activity.id} className="relative flex items-start gap-4 pb-4 border-l-2 border-muted last:border-transparent ml-2">
+                      <div className="absolute -left-[5px] mt-1.5 h-2 w-2 rounded-full ring-4 ring-background bg-primary"></div>
+                      <div className="pl-6 space-y-1 w-full">
+                        <p className="text-sm font-medium">{activity.type}</p>
+                        <p className="text-sm text-muted-foreground">{activity.description}</p>
+                        <time className="text-[10px] text-muted-foreground uppercase opacity-80 font-medium">
+                          {new Date(activity.created_at).toLocaleString('es-ES')}
+                        </time>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="transactions">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base">Cuenta Corriente</CardTitle>
+              <Badge variant={balance >= 0 ? "default" : "destructive"} className="text-sm">
+                Saldo: ${balance.toLocaleString()}
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex gap-2 items-end border p-3 rounded-md bg-muted/20">
+                <div className="flex-1 space-y-1">
+                  <label className="text-xs text-muted-foreground">Monto</label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input type="number" placeholder="0.00" className="pl-6 h-8 text-sm" value={transForm.amount} onChange={e => setTransForm({...transForm, amount: e.target.value})} />
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <div className="flex-[2] space-y-1">
+                  <label className="text-xs text-muted-foreground">Descripción (opcional)</label>
+                  <Input placeholder="Motivo del movimiento..." className="h-8 text-sm" value={transForm.description} onChange={e => setTransForm({...transForm, description: e.target.value})} />
+                </div>
+                <Button disabled={addingTrans} size="sm" onClick={() => { setTransForm({...transForm, type: 'ingreso'}); handleAddTransaction(); }} className="h-8 bg-green-600 hover:bg-green-700">
+                  <Plus className="h-3 w-3 mr-1" /> Ingreso
+                </Button>
+                <Button disabled={addingTrans} size="sm" variant="destructive" onClick={() => { setTransForm({...transForm, type: 'egreso'}); handleAddTransaction(); }} className="h-8">
+                  <Minus className="h-3 w-3 mr-1" /> Egreso
+                </Button>
+              </div>
+
+              {transactions.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No hay transacciones registradas.</p>
+              ) : (
+                <div className="space-y-2">
+                  {transactions.map(t => (
+                    <div key={t.id} className="flex justify-between items-center p-3 sm:text-sm text-xs rounded-md border">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{t.description || (t.type === 'ingreso' ? 'Ingreso manual' : 'Egreso manual')}</span>
+                        <span className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleString('es-ES')}</span>
+                      </div>
+                      <span className={`font-semibold ${t.type === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
+                        {t.type === 'ingreso' ? '+' : '-'}${Number(t.amount).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

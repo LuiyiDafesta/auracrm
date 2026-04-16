@@ -13,12 +13,13 @@ export default function Dashboard() {
     if (!user) return;
 
     const fetchStats = async () => {
-      const [contactsRes, oppsRes, tasksRes, stagesRes, activitiesRes] = await Promise.all([
+      const [contactsRes, oppsRes, tasksRes, stagesRes, activitiesRes, transactionsRes] = await Promise.all([
         supabase.from('contacts').select('id', { count: 'exact', head: true }),
         supabase.from('opportunities').select('id, stage, value, is_archived'),
         supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'pendiente'),
         supabase.from('opportunity_stages').select('name'),
         supabase.from('activities').select('*').order('created_at', { ascending: false }).limit(10),
+        supabase.from('contact_transactions').select('amount, type')
       ]);
 
       const stages = (stagesRes.data || []).map(s => s.name);
@@ -27,7 +28,13 @@ export default function Dashboard() {
 
       const opps = oppsRes.data || [];
       const activeOppsCount = opps.filter(o => !o.is_archived && !wonStages.includes(o.stage) && !lostStages.includes(o.stage)).length;
-      const totalRevenue = opps.filter(o => wonStages.includes(o.stage)).reduce((sum, o) => sum + (Number(o.value) || 0), 0);
+      
+      const oppsRevenue = opps.filter(o => wonStages.includes(o.stage)).reduce((sum, o) => sum + (Number(o.value) || 0), 0);
+      
+      const trans = transactionsRes.data || [];
+      const manualRevenue = trans.reduce((sum, t) => sum + (t.type === 'ingreso' ? Number(t.amount) : -Number(t.amount)), 0);
+
+      const totalRevenue = oppsRevenue + manualRevenue;
 
       setStats({
         contacts: contactsRes.count || 0,
