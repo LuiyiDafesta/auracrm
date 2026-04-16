@@ -118,8 +118,34 @@ export default function ContactDetail() {
     const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
     await supabase.from('contacts').update({ avatar_url: urlData.publicUrl }).eq('id', contact.id);
     setUploading(false);
+    setUploading(false);
     fetchAll();
   };
+
+  const handleAddTransaction = async () => {
+    if (!transForm.amount || isNaN(Number(transForm.amount))) {
+      toast({ title: 'Introduce un monto válido', variant: 'destructive' });
+      return;
+    }
+    setAddingTrans(true);
+    const { error } = await supabase.from('contact_transactions').insert({
+      contact_id: contact.id,
+      user_id: user?.id,
+      amount: Number(transForm.amount),
+      type: transForm.type,
+      description: transForm.description
+    });
+    setAddingTrans(false);
+    if (error) {
+      toast({ title: 'Error al procesar', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Transacción guardada exitosamente' });
+      setTransForm({ amount: '', type: 'ingreso', description: '' });
+      fetchAll();
+    }
+  };
+
+  const balance = transactions.reduce((sum, t) => sum + (t.type === 'ingreso' ? Number(t.amount) : -Number(t.amount)), 0);
 
   const renderScore = () => {
     const color = leadScore >= 80 ? 'text-green-500' : leadScore >= 50 ? 'text-yellow-500' : leadScore >= 20 ? 'text-orange-500' : 'text-muted-foreground';
