@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,8 +13,8 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Mail, Send, Loader2, BarChart3, Trophy, Eye, MousePointerClick } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Plus, Pencil, Trash2, Mail, Send, Loader2, BarChart3, Trophy, Eye, MousePointerClick, ChevronRight, ChevronLeft, CalendarClock, Settings2, Users2, LayoutTemplate, CheckCircle } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Database } from '@/integrations/supabase/types';
 
 type Campaign = Database['public']['Tables']['campaigns']['Row'];
@@ -33,6 +33,7 @@ export default function Campaigns() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
@@ -40,13 +41,14 @@ export default function Campaigns() {
 
   // Send dialog state
   const [sendOpen, setSendOpen] = useState(false);
+  const [sendStep, setSendStep] = useState(1);
   const [sendCampaign, setSendCampaign] = useState<Campaign | null>(null);
   const [segments, setSegments] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [sendForm, setSendForm] = useState({
     segment_id: '', template_id: '', emails_per_second: '1',
     from_email: '', from_name: '',
-    is_ab_test: false, template_id_b: '', ab_test_percentage: 10, ab_wait_hours: 24,
+    is_ab_test: false, template_id_b: '', ab_test_percentage: 10, ab_wait_hours: 24, ab_winning_metric: 'opens',
     distribute_over_days: false,
   });
   const [sendLoading, setSendLoading] = useState(false);
@@ -63,6 +65,7 @@ export default function Campaigns() {
     if (!user) return;
     const { data } = await supabase.from('campaigns').select('*').order('created_at', { ascending: false });
     setCampaigns(data || []);
+    return data;
   };
 
   const fetchActiveSends = async () => {
@@ -71,9 +74,22 @@ export default function Campaigns() {
     setActiveSends(data || []);
   };
 
-  useEffect(() => { fetchData(); fetchActiveSends(); }, [user]);
-
   useEffect(() => {
+    if (!user) return;
+    fetchData().then((campaignsData) => {
+      // Check query param
+      const sendCampId = searchParams.get('send_campaign');
+      if (sendCampId && campaignsData) {
+        const c = (campaignsData as Campaign[]).find(camp => camp.id === sendCampId);
+        if (c) {
+          openSendDialog(c);
+          searchParams.delete('send_campaign');
+          setSearchParams(searchParams);
+        }
+      }
+    });
+    fetchActiveSends();
+    
     const channel = supabase
       .channel('campaign_sends_progress')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_sends' }, () => {
@@ -81,7 +97,7 @@ export default function Campaigns() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [user]);
 
   const handleSave = async () => {
     if (!user) return;
@@ -112,15 +128,16 @@ export default function Campaigns() {
 
   const openSendDialog = async (c: Campaign) => {
     setSendCampaign(c);
+    setSendStep(1);
     setSendForm({
       segment_id: '', template_id: '', emails_per_second: '1',
       from_email: (c as any).from_email || '', from_name: (c as any).from_name || '',
-      is_ab_test: false, template_id_b: '', ab_test_percentage: 10, ab_wait_hours: 24,
+      is_ab_test: false, template_id_b: '', ab_test_percentage: 10, ab_wait_hours: 24, ab_winning_metric: 'opens',
       distribute_over_days: !!(c.start_date && c.end_date),
     });
     const [segRes, tmplRes] = await Promise.all([
       supabase.from('segments').select('id, name'),
-      supabase.from('email_templates').select('id, name, subject'),
+      supabase.from('email_templates').select('id, name, subject').order('updated_at', { ascending: false }),
     ]);
     setSegments(segRes.data || []);
     setTemplates(tmplRes.data || []);
@@ -128,14 +145,7 @@ export default function Campaigns() {
   };
 
   const handleSend = async () => {
-    if (!sendCampaign || !sendForm.segment_id || !sendForm.template_id) {
-      toast({ title: 'Error', description: 'Selecciona segmento y plantilla', variant: 'destructive' });
-      return;
-    }
-    if (sendForm.is_ab_test && !sendForm.template_id_b) {
-      toast({ title: 'Error', description: 'Selecciona la plantilla B para el A/B test', variant: 'destructive' });
-      return;
-    }
+    if (!sendCampaign) return;
     setSendLoading(true);
     try {
       const res = await supabase.functions.invoke('enqueue-campaign', {
@@ -150,6 +160,7 @@ export default function Campaigns() {
           template_id_b: sendForm.is_ab_test ? sendForm.template_id_b : undefined,
           ab_test_percentage: sendForm.ab_test_percentage,
           ab_wait_hours: sendForm.ab_wait_hours,
+          ab_winning_metric: sendForm.ab_winning_metric,
           distribute_over_days: sendForm.distribute_over_days,
         },
       });
@@ -157,16 +168,16 @@ export default function Campaigns() {
       const result = res.data;
       if (result?.success) {
         const desc = result.type === 'ab_test'
-          ? `A/B Test: ${result.test_emails_a}+${result.test_emails_b} pruebas, ${result.remaining_emails} pendientes`
-          : `${result.total_emails} emails en cola${result.days > 1 ? ` (${result.days} días)` : ''} a ${result.emails_per_second}/seg`;
-        toast({ title: '¡Campaña lanzada!', description: desc });
+          ? `A/B Test en cola: ${result.test_emails_a}+${result.test_emails_b} pruebas enviándose.`
+          : `Lanzado masivo: ${result.total_emails} emails en cola a ${result.emails_per_second}/seg.`;
+        toast({ title: '¡Campaña lanzada exitosamente!', description: desc });
         setSendOpen(false);
         fetchActiveSends();
       } else {
-        throw new Error(result?.error || 'Error desconocido');
+        throw new Error(result?.error || 'Error desconocido al encolar');
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      toast({ title: 'Error al enviar campaña', description: err.message, variant: 'destructive' });
     }
     setSendLoading(false);
   };
@@ -204,11 +215,10 @@ export default function Campaigns() {
       const result = res.data;
       if (result?.success) {
         toast({ title: `¡Variante ${result.winner_variant} ganadora!`, description: `${result.remaining_emails} emails adicionales en cola` });
-        // Refresh metrics
         if (metricsCampaign) openMetrics(metricsCampaign);
         fetchActiveSends();
       } else {
-        throw new Error(result?.error || 'Error');
+        throw new Error(result?.error || 'Error del servidor');
       }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -218,10 +228,16 @@ export default function Campaigns() {
 
   const hasDates = sendCampaign?.start_date && sendCampaign?.end_date;
 
+  const validateStep1 = () => sendForm.segment_id && sendForm.template_id;
+  const validateStep2 = () => !sendForm.is_ab_test || (sendForm.is_ab_test && sendForm.template_id_b);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-3xl font-bold">Campañas</h1><p className="text-muted-foreground">Gestiona campañas, envíos masivos y A/B testing</p></div>
+        <div>
+          <h1 className="text-3xl font-bold">Campañas</h1>
+          <p className="text-muted-foreground">Gestiona campañas, envíos masivos y A/B testing inteligentemente</p>
+        </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm(emptyForm); } }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nueva Campaña</Button></DialogTrigger>
           <DialogContent>
@@ -254,36 +270,34 @@ export default function Campaigns() {
               <div className="space-y-2"><label className="text-sm font-medium">Notas</label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
               <div className="border-t pt-4 mt-2">
                 <p className="text-sm font-medium mb-1">Remitente personalizado <span className="text-muted-foreground font-normal">(opcional)</span></p>
-                <p className="text-xs text-muted-foreground mb-3">Si no se configura, se usará el remitente del SMTP global.</p>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><label className="text-sm font-medium">Email remitente</label><Input placeholder="ventas@otrodominio.com" value={form.from_email} onChange={e => setForm({ ...form, from_email: e.target.value })} /></div>
-                  <div className="space-y-2"><label className="text-sm font-medium">Nombre remitente</label><Input placeholder="Otra Empresa" value={form.from_name} onChange={e => setForm({ ...form, from_name: e.target.value })} /></div>
+                  <Input placeholder="Email (ej. ventas@empresa.com)" value={form.from_email} onChange={e => setForm({ ...form, from_email: e.target.value })} />
+                  <Input placeholder="Nombre (ej. Mi Empresa)" value={form.from_name} onChange={e => setForm({ ...form, from_name: e.target.value })} />
                 </div>
               </div>
-              <Button onClick={handleSave} className="w-full">{editing ? 'Guardar cambios' : 'Crear campaña'}</Button>
+              <Button onClick={handleSave} className="w-full h-10">{editing ? 'Guardar cambios' : 'Crear campaña'}</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Active sends progress */}
       {activeSends.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3"><h3 className="text-sm font-medium">Envíos en curso</h3></CardHeader>
-          <CardContent className="space-y-3">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="pb-2"><h3 className="text-sm font-semibold text-primary">Envíos Activos ({activeSends.length})</h3></CardHeader>
+          <CardContent className="space-y-4">
             {activeSends.map((s: any) => {
               const progress = s.total_emails > 0 ? Math.round(((s.sent_count + s.failed_count) / s.total_emails) * 100) : 0;
               const campaignName = campaigns.find(c => c.id === s.campaign_id)?.name || 'Campaña';
               const variant = s.ab_variant ? ` (Variante ${s.ab_variant})` : '';
               return (
-                <div key={s.id} className="space-y-1">
+                <div key={s.id} className="space-y-2 bg-background p-3 rounded border">
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium">{campaignName}{variant}</span>
-                    <span className="text-muted-foreground">
-                      {s.sent_count}/{s.total_emails} enviados ({s.emails_per_second}/seg)
+                    <span className="font-medium flex items-center gap-2"><Send className="h-3 w-3 text-primary animate-pulse"/> {campaignName}{variant}</span>
+                    <span className="text-muted-foreground text-xs font-semibold">
+                      {s.sent_count}/{s.total_emails} ({s.emails_per_second}/seg)
                     </span>
                   </div>
-                  <Progress value={progress} className="h-2" />
+                  <Progress value={progress} className="h-1.5" />
                 </div>
               );
             })}
@@ -291,36 +305,36 @@ export default function Campaigns() {
         </Card>
       )}
 
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="shadow-sm">
+        <CardContent className="pt-6 p-0 border-none">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Tipo</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Presupuesto</TableHead>
-                <TableHead>Inicio</TableHead>
-                <TableHead>Fin</TableHead>
-                <TableHead className="w-36"></TableHead>
+                <TableHead>Fechas</TableHead>
+                <TableHead className="w-48 text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {campaigns.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No hay campañas</TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Aún no hay campañas creadas.</TableCell></TableRow>
               ) : campaigns.map(c => (
                 <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell>{c.type || '—'}</TableCell>
-                  <TableCell><Badge className={statusColors[c.status]} variant="secondary">{c.status}</Badge></TableCell>
-                  <TableCell>{c.budget ? `$${Number(c.budget).toLocaleString()}` : '—'}</TableCell>
-                  <TableCell>{c.start_date ? new Date(c.start_date).toLocaleDateString('es-ES') : '—'}</TableCell>
-                  <TableCell>{c.end_date ? new Date(c.end_date).toLocaleDateString('es-ES') : '—'}</TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openSendDialog(c)} title="Enviar campaña"><Send className="h-4 w-4 text-primary" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => openMetrics(c)} title="Métricas"><BarChart3 className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => navigate(`/email-builder/new?campaign=${c.id}`)} title="Crear email"><Mail className="h-4 w-4" /></Button>
+                    <p className="font-semibold">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">{c.type || 'Sin tipo determinado'}</p>
+                  </TableCell>
+                  <TableCell><Badge className={statusColors[c.status]} variant="secondary">{c.status}</Badge></TableCell>
+                  <TableCell className="text-sm">
+                    {c.start_date || c.end_date ? (
+                       <span className="text-muted-foreground flex gap-1 items-center"><CalendarClock className="w-3 h-3"/> {c.start_date ? new Date(c.start_date).toLocaleDateString() : '?'} - {c.end_date ? new Date(c.end_date).toLocaleDateString() : '?'}</span>
+                    ) : 'Sin fechas asignadas'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="outline" size="sm" className="bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary" onClick={() => openSendDialog(c)} title="Asistente de Envío"><Send className="h-3.5 w-3.5 mr-1" /> Enviar</Button>
+                      <Button variant="ghost" size="icon" onClick={() => openMetrics(c)} title="Ver Métricas"><BarChart3 className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
@@ -332,184 +346,357 @@ export default function Campaigns() {
         </CardContent>
       </Card>
 
-      {/* Send Campaign Dialog */}
+      {/* Stepper Dialog for Sending */}
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Enviar Campaña: {sendCampaign?.name}</DialogTitle></DialogHeader>
-          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Segmento de contactos *</label>
-              <Select value={sendForm.segment_id} onValueChange={v => setSendForm({ ...sendForm, segment_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecciona un segmento" /></SelectTrigger>
-                <SelectContent>{segments.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Plantilla{sendForm.is_ab_test ? ' A' : ''} *</label>
-              <Select value={sendForm.template_id} onValueChange={v => setSendForm({ ...sendForm, template_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecciona una plantilla" /></SelectTrigger>
-                <SelectContent>{templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name} — {t.subject}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Velocidad de envío</label>
-              <Select value={sendForm.emails_per_second} onValueChange={v => setSendForm({ ...sendForm, emails_per_second: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1/seg (~3,600/hora)</SelectItem>
-                  <SelectItem value="2">2/seg (~7,200/hora)</SelectItem>
-                  <SelectItem value="5">5/seg (~18,000/hora)</SelectItem>
-                  <SelectItem value="10">10/seg (~36,000/hora)</SelectItem>
-                  <SelectItem value="20">20/seg (~72,000/hora)</SelectItem>
-                </SelectContent>
-              </Select>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden bg-background">
+          <DialogHeader className="p-6 pb-2 border-b">
+            <DialogTitle className="text-xl flex items-center gap-2"><Send className="h-5 w-5 text-primary"/> Asistente de Envío: {sendCampaign?.name}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex h-[55vh] max-h-[600px] min-h-[400px]">
+            {/* Sidebar Steps */}
+            <div className="w-1/3 border-r bg-muted/10 p-6 flex flex-col gap-6">
+               {[
+                 {num: 1, name: 'Audiencia y Contenido', icon: Users2},
+                 {num: 2, name: 'Pruebas A/B', icon: Trophy},
+                 {num: 3, name: 'Delivery y Velocidad', icon: Settings2},
+                 {num: 4, name: 'Resumen Final', icon: BarChart3}
+               ].map((step) => {
+                 const isActive = sendStep === step.num;
+                 const isCompleted = sendStep > step.num;
+                 return (
+                   <div key={step.num} className={`flex gap-3 items-center transition-colors ${isActive ? 'text-primary font-bold' : isCompleted ? 'text-muted-foreground' : 'text-muted-foreground opacity-50'}`}>
+                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 ${isActive ? 'bg-primary/10 border-primary' : isCompleted ? 'bg-muted border-primary/50' : 'bg-transparent border-border'}`}>
+                       <step.icon className={`w-4 h-4 ${isActive ? 'text-primary' : ''}`} />
+                     </div>
+                     <span className="text-sm leading-tight">{step.name}</span>
+                   </div>
+                 );
+               })}
             </div>
 
-            {/* Date distribution */}
-            {hasDates && (
-              <div className="flex items-center justify-between border rounded-lg p-3">
-                <div>
-                  <p className="text-sm font-medium">Distribuir en la duración</p>
-                  <p className="text-xs text-muted-foreground">Repartir emails entre {sendCampaign?.start_date} y {sendCampaign?.end_date}</p>
-                </div>
-                <Switch checked={sendForm.distribute_over_days} onCheckedChange={v => setSendForm({ ...sendForm, distribute_over_days: v })} />
-              </div>
-            )}
+            {/* Content Area */}
+            <div className="w-2/3 p-6 overflow-y-auto">
+               {sendStep === 1 && (
+                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="space-y-1.5">
+                      <h3 className="text-lg font-semibold">¿A quién se lo enviaremos?</h3>
+                      <p className="text-sm text-muted-foreground mb-4">Selecciona el grupo de contactos (segmento) objetivo.</p>
+                      <Select value={sendForm.segment_id} onValueChange={v => setSendForm({ ...sendForm, segment_id: v })}>
+                        <SelectTrigger className="h-12"><SelectValue placeholder="Elegir segmento..." /></SelectTrigger>
+                        <SelectContent>{segments.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
 
-            {/* A/B Testing */}
-            <div className="border-t pt-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">A/B Testing</p>
-                  <p className="text-xs text-muted-foreground">Prueba 2 plantillas y envía la ganadora al resto</p>
-                </div>
-                <Switch checked={sendForm.is_ab_test} onCheckedChange={v => setSendForm({ ...sendForm, is_ab_test: v })} />
-              </div>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center mb-1">
+                        <h3 className="text-lg font-semibold">Mensaje Principal</h3>
+                        <Button 
+                          variant="ghost" size="sm" 
+                          className="h-8 text-primary hover:bg-primary/10 px-2"
+                          onClick={() => {
+                            setSendOpen(false);
+                            navigate(`/email-builder/new?campaign=${sendCampaign?.id}`);
+                          }}
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1"/> Crear Plantilla
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">Escoge una plantilla de tu galería.</p>
+                      <Select value={sendForm.template_id} onValueChange={v => setSendForm({ ...sendForm, template_id: v })}>
+                        <SelectTrigger className="h-12"><SelectValue placeholder="Elegir plantilla base (Test A)" /></SelectTrigger>
+                        <SelectContent>
+                          {templates.length === 0 && <span className="p-3 text-sm text-muted-foreground">No tienes plantillas creadas.</span>}
+                          {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name} <span className="opacity-50">— {t.subject}</span></SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                 </div>
+               )}
 
-              {sendForm.is_ab_test && (
-                <div className="space-y-3 pl-1">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Plantilla B *</label>
-                    <Select value={sendForm.template_id_b} onValueChange={v => setSendForm({ ...sendForm, template_id_b: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecciona la plantilla B" /></SelectTrigger>
-                      <SelectContent>{templates.filter(t => t.id !== sendForm.template_id).map(t => <SelectItem key={t.id} value={t.id}>{t.name} — {t.subject}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">% de prueba: {sendForm.ab_test_percentage}%</label>
-                    <p className="text-xs text-muted-foreground">{sendForm.ab_test_percentage / 2}% para cada variante, {100 - sendForm.ab_test_percentage}% para el ganador</p>
-                    <Slider
-                      value={[sendForm.ab_test_percentage]}
-                      onValueChange={v => setSendForm({ ...sendForm, ab_test_percentage: v[0] })}
-                      min={2} max={50} step={2}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Tiempo de evaluación</label>
-                    <Select value={String(sendForm.ab_wait_hours)} onValueChange={v => setSendForm({ ...sendForm, ab_wait_hours: parseInt(v) })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="6">6 horas</SelectItem>
-                        <SelectItem value="12">12 horas</SelectItem>
-                        <SelectItem value="24">24 horas</SelectItem>
-                        <SelectItem value="48">48 horas</SelectItem>
-                        <SelectItem value="72">72 horas</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
+               {sendStep === 2 && (
+                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                   <div className="flex items-center justify-between border-b pb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">Pruebas A/B</h3>
+                        <p className="text-sm text-muted-foreground mr-4">Encuentra la mejor variante probando 2 emails distintos con una pequeña porción del segmento.</p>
+                      </div>
+                      <Switch checked={sendForm.is_ab_test} onCheckedChange={v => setSendForm({ ...sendForm, is_ab_test: v })} />
+                   </div>
+
+                   {sendForm.is_ab_test ? (
+                     <div className="space-y-6 border rounded-xl p-4 bg-muted/20">
+                       <div className="space-y-1.5">
+                          <label className="text-sm font-semibold">Plantilla Competidora (Variante B) *</label>
+                          <Select value={sendForm.template_id_b} onValueChange={v => setSendForm({ ...sendForm, template_id_b: v })}>
+                            <SelectTrigger className="bg-background"><SelectValue placeholder="Elegir plantilla B..." /></SelectTrigger>
+                            <SelectContent>{templates.filter(t => t.id !== sendForm.template_id).map(t => <SelectItem key={t.id} value={t.id}>{t.name} — {t.subject}</SelectItem>)}</SelectContent>
+                          </Select>
+                       </div>
+                       
+                       <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <label className="text-sm font-semibold">Audiencia de Prueba: {sendForm.ab_test_percentage}%</label>
+                            <Badge variant="outline" className="bg-background">{sendForm.ab_test_percentage/2}% a A / {sendForm.ab_test_percentage/2}% a B</Badge>
+                          </div>
+                          <Slider value={[sendForm.ab_test_percentage]} onValueChange={v => setSendForm({ ...sendForm, ab_test_percentage: v[0] })} min={2} max={50} step={2} />
+                          <p className="text-xs text-muted-foreground text-center">Tú decides cuándo enviar al {100 - sendForm.ab_test_percentage}% restante eligiendo a la ganadora.</p>
+                       </div>
+
+                       <div className="grid grid-cols-2 gap-4 pt-2">
+                         <div className="space-y-1.5">
+                           <label className="text-xs font-semibold uppercase text-muted-foreground">Métrica Ganadora</label>
+                           <Select value={sendForm.ab_winning_metric} onValueChange={v => setSendForm({ ...sendForm, ab_winning_metric: v })}>
+                             <SelectTrigger className="bg-background h-9 text-sm"><SelectValue /></SelectTrigger>
+                             <SelectContent>
+                               <SelectItem value="opens">Aperturas (Opens)</SelectItem>
+                               <SelectItem value="clicks">Clicks</SelectItem>
+                             </SelectContent>
+                           </Select>
+                         </div>
+                         <div className="space-y-1.5">
+                           <label className="text-xs font-semibold uppercase text-muted-foreground">Evaluar tras</label>
+                           <Select value={String(sendForm.ab_wait_hours)} onValueChange={v => setSendForm({ ...sendForm, ab_wait_hours: parseInt(v) })}>
+                             <SelectTrigger className="bg-background h-9 text-sm"><SelectValue /></SelectTrigger>
+                             <SelectContent>
+                               <SelectItem value="6">6 horas</SelectItem>
+                               <SelectItem value="12">12 horas</SelectItem>
+                               <SelectItem value="24">24 horas</SelectItem>
+                               <SelectItem value="48">48 horas</SelectItem>
+                             </SelectContent>
+                           </Select>
+                         </div>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/10 rounded-xl border border-dashed hover:border-primary/50 transition-colors cursor-pointer" onClick={() => setSendForm({...sendForm, is_ab_test: true})}>
+                       <Trophy className="w-10 h-10 text-muted-foreground mb-3 opacity-30" />
+                       <span className="text-sm font-semibold text-muted-foreground">A/B Testing Desactivado</span>
+                       <span className="text-xs opacity-60">Haz click aquí si deseas comparar dos plantillas antes de enviar.</span>
+                     </div>
+                   )}
+                 </div>
+               )}
+
+               {sendStep === 3 && (
+                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold">Tasa Limitada de Entrega (Throttling)</h3>
+                      <p className="text-sm text-muted-foreground mb-2">Para proteger la reputación de tu dominio SMTP, configura la velocidad de despacho.</p>
+                      <Select value={sendForm.emails_per_second} onValueChange={v => setSendForm({ ...sendForm, emails_per_second: v })}>
+                        <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 por segundo (~3,600 / hr) — Recomendado</SelectItem>
+                          <SelectItem value="2">2 por segundo (~7,200 / hr) — Moderado</SelectItem>
+                          <SelectItem value="10">10 por segundo (~36,000 / hr) — Acelerado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="pt-2 border-t mt-4">
+                       <h3 className="text-lg font-semibold mb-1">Distribución Inteligente</h3>
+                       <p className="text-sm text-muted-foreground mb-4">Podemos repartir el monto total de emails enviando un poco cada día según la duración original de la campaña.</p>
+                       
+                       {!hasDates ? (
+                         <div className="p-3 bg-warning/10 text-warning rounded text-sm text-center font-medium">
+                           Para usar esta función, la campaña debe tener configuradas de antemano "Fecha inicio" y "Fecha fin". Vuelve a editar la campaña para añadir las fechas.
+                         </div>
+                       ) : (
+                         <div className={`p-4 border rounded-xl flex items-start gap-4 transition-all ${sendForm.distribute_over_days ? 'bg-primary/5 border-primary/30' : 'bg-background'}`}>
+                           <Switch checked={sendForm.distribute_over_days} onCheckedChange={v => setSendForm({ ...sendForm, distribute_over_days: v })} />
+                           <div>
+                             <span className="font-semibold block mb-0.5">Espaciar entre días automáticamente</span>
+                             <p className="text-xs text-muted-foreground leading-relaxed">
+                               Si se activa, distribuiremos los envíos en partes iguales entre {new Date(sendCampaign!.start_date!).toLocaleDateString()} y {new Date(sendCampaign!.end_date!).toLocaleDateString()}. Excelente opción para evitar saturación y bans.
+                             </p>
+                           </div>
+                         </div>
+                       )}
+                    </div>
+                 </div>
+               )}
+
+               {sendStep === 4 && (
+                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300 pb-8">
+                    <h3 className="text-lg font-bold text-center mb-6">Resumen del Despacho</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="border rounded-lg p-3 bg-muted/10">
+                        <span className="block text-xs uppercase text-muted-foreground tracking-wider mb-1 font-semibold">Canal</span>
+                        <span className="font-medium">📧 Email Marketing</span>
+                      </div>
+                      <div className="border rounded-lg p-3 bg-muted/10">
+                        <span className="block text-xs uppercase text-muted-foreground tracking-wider mb-1 font-semibold">Tasa de Envío</span>
+                        <span className="font-medium">{sendForm.emails_per_second} msg/seg.</span>
+                      </div>
+                      <div className="col-span-2 border rounded-lg p-3 bg-muted/10">
+                        <span className="block text-xs uppercase text-muted-foreground tracking-wider mb-1 font-semibold">Distribución Fechas</span>
+                        <span className="font-medium text-primary">
+                          {sendForm.distribute_over_days ? `Repartición inteligente activada a lo largo del periodo.` : 'Envío masivo continuado hoy.'}
+                        </span>
+                      </div>
+                      <div className="col-span-2 border rounded-lg p-3 bg-muted/10">
+                        <span className="block text-xs uppercase text-muted-foreground tracking-wider mb-1 font-semibold">Pruebas A/B</span>
+                        <span className="font-medium">
+                          {sendForm.is_ab_test ? `Activadas (${sendForm.ab_test_percentage}% de test). Métrica definida: ${sendForm.ab_winning_metric === 'opens' ? 'Aperturas' : 'Clicks'}.` : 'Desactivadas (Sin variante B y enviando al 100%).'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t pt-4">
+                      <p className="text-xs text-muted-foreground text-center mb-3 leading-relaxed">¿Deseas enviar un email remiente estático distinto al de tu configuración general?</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input className="text-sm h-9" placeholder="De (Email)" value={sendForm.from_email} onChange={e => setSendForm({ ...sendForm, from_email: e.target.value })} />
+                        <Input className="text-sm h-9" placeholder="Nombre (Ej: Franco de ABC)" value={sendForm.from_name} onChange={e => setSendForm({ ...sendForm, from_name: e.target.value })} />
+                      </div>
+                    </div>
+                 </div>
+               )}
             </div>
-
-            {/* Sender override */}
-            <div className="border-t pt-3">
-              <p className="text-sm font-medium mb-1">Remitente <span className="text-muted-foreground font-normal">(opcional)</span></p>
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <Input placeholder="Email remitente" value={sendForm.from_email} onChange={e => setSendForm({ ...sendForm, from_email: e.target.value })} />
-                <Input placeholder="Nombre remitente" value={sendForm.from_name} onChange={e => setSendForm({ ...sendForm, from_name: e.target.value })} />
-              </div>
-            </div>
-
-            <Button onClick={handleSend} disabled={sendLoading} className="w-full">
-              {sendLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Encolando...</> : <><Send className="h-4 w-4 mr-2" />{sendForm.is_ab_test ? 'Lanzar A/B Test' : 'Lanzar envío'}</>}
-            </Button>
           </div>
+          
+          <DialogFooter className="p-4 border-t bg-muted/20 flex justify-between sm:justify-between items-center shrink-0">
+             <Button variant="ghost" onClick={() => setSendStep(Math.max(1, sendStep - 1))} disabled={sendStep === 1} className="w-24">
+               <ChevronLeft className="w-4 h-4 mr-1"/> Volver
+             </Button>
+             
+             {sendStep < 4 ? (
+               <Button onClick={() => setSendStep(sendStep + 1)} disabled={(sendStep === 1 && !validateStep1()) || (sendStep === 2 && !validateStep2())} className="w-32 bg-indigo-600 hover:bg-indigo-700 text-white">
+                 Siguiente <ChevronRight className="w-4 h-4 ml-1"/>
+               </Button>
+             ) : (
+               <Button onClick={handleSend} disabled={sendLoading} className="w-48 bg-primary shadow-md hover:shadow-lg transition-all font-bold">
+                  {sendLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Iniciando...</> : <><Send className="h-4 w-4 mr-2" />Despachar Servidor</>}
+               </Button>
+             )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Metrics Dialog */}
       <Dialog open={metricsOpen} onOpenChange={setMetricsOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Métricas: {metricsCampaign?.name}</DialogTitle></DialogHeader>
-          <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl p-6 bg-slate-50">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2"><BarChart3 className="text-primary"/>Métricas en Vivo: {metricsCampaign?.name}</DialogTitle>
+            <CardDescription>Rendimiento por despachos y análisis de resultados para Tests A/B.</CardDescription>
+          </DialogHeader>
+          <div className="space-y-5 max-h-[75vh] overflow-y-auto pb-4 pr-1">
             {campaignSends.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No hay envíos para esta campaña</p>
+              <div className="text-center bg-white p-10 border rounded-xl border-dashed">
+                <p className="text-muted-foreground">Todavía no has generado despachos masivos con esta campaña.</p>
+              </div>
             ) : (
+              // Agrupamos A/B sends si existen.
               campaignSends.map((s: any) => {
-                const metrics = trackingData[s.id] || { opens: 0, clicks: 0 };
-                const progress = s.total_emails > 0 ? Math.round(((s.sent_count + s.failed_count) / s.total_emails) * 100) : 0;
-                const openRate = s.sent_count > 0 ? ((metrics.opens / s.sent_count) * 100).toFixed(1) : '0';
-                const clickRate = s.sent_count > 0 ? ((metrics.clicks / s.sent_count) * 100).toFixed(1) : '0';
-                const isAB = s.is_ab_test;
-                const canPickWinner = isAB && s.status === 'completed' && !s.ab_winner_sent;
+                if (s.is_ab_test && s.ab_variant === 'B') return null; // We render A and B together.
+                
+                let bVariant = null;
+                if (s.is_ab_test && s.ab_variant === 'A') {
+                  bVariant = campaignSends.find((x: any) => x.ab_parent_id === s.id);
+                }
 
+                const renderSendCard = (sendData: any, titleStr: string, isWinner: boolean, metricWatch: string) => {
+                  const m = trackingData[sendData.id] || { opens: 0, clicks: 0 };
+                  const prog = sendData.total_emails > 0 ? Math.round(((sendData.sent_count + sendData.failed_count) / sendData.total_emails) * 100) : 0;
+                  const oRate = sendData.sent_count > 0 ? ((m.opens / sendData.sent_count) * 100).toFixed(1) : '0';
+                  const cRate = sendData.sent_count > 0 ? ((m.clicks / sendData.sent_count) * 100).toFixed(1) : '0';
+                  const isActive = sendData.status === 'processing';
+                  
+                  return (
+                    <div className={`p-4 border rounded-xl transition-all relative overflow-hidden bg-white ${isWinner ? 'border-amber-400 ring-2 ring-amber-400/20 shadow-md' : 'shadow-sm'}`}>
+                      {isWinner && <div className="absolute top-0 right-0 bg-amber-400 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl-lg tracking-wider flex"><Trophy className="w-3 h-3 mr-1"/> Líder actual</div>}
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-sm tracking-tight">{titleStr}</h4>
+                          <span className="flex text-[11px] text-muted-foreground uppercase opacity-70">
+                            {new Date(sendData.created_at).toLocaleString('es-ES', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}
+                          </span>
+                        </div>
+                        <Badge variant={sendData.status === 'completed' ? 'default' : isActive ? 'outline' : 'destructive'} className={isActive ? "border-primary text-primary" : ""}>
+                          {sendData.status}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className={`p-3 rounded-lg flex flex-col justify-center items-center ${metricWatch === 'opens' && s.is_ab_test ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50 border border-transparent'}`}>
+                           <span className="text-xl font-bold flex gap-1.5 items-center"><Eye className="w-4 h-4 text-primary"/> {m.opens}</span>
+                           <span className="text-[10px] text-muted-foreground font-semibold uppercase">{oRate}% Aperturas</span>
+                        </div>
+                        <div className={`p-3 rounded-lg flex flex-col justify-center items-center ${metricWatch === 'clicks' && s.is_ab_test ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50 border border-transparent'}`}>
+                           <span className="text-xl font-bold flex gap-1.5 items-center"><MousePointerClick className="w-4 h-4 text-emerald-600"/> {m.clicks}</span>
+                           <span className="text-[10px] text-muted-foreground font-semibold uppercase">{cRate}% Clicks</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px] font-medium text-slate-500 uppercase tracking-widest">
+                           <span>{prog}% Progreso</span>
+                           <span>{sendData.sent_count} de {sendData.total_emails}</span>
+                        </div>
+                        <Progress value={prog} className="h-1.5" />
+                        {sendData.failed_count > 0 && <span className="block text-right mt-1 text-xs text-destructive font-medium">{sendData.failed_count} fallidos</span>}
+                      </div>
+                    </div>
+                  );
+                };
+
+                if (s.is_ab_test && bVariant) {
+                   const m1 = trackingData[s.id] || { opens: 0, clicks: 0 };
+                   const m2 = trackingData[bVariant.id] || { opens: 0, clicks: 0 };
+                   const metricVar = s.ab_winning_metric || 'opens'; 
+                   let winnerSendId = null;
+                   
+                   // Determinar el líder actual para pintarlo
+                   if (metricVar === 'opens') {
+                     if (m1.opens > m2.opens) winnerSendId = s.id;
+                     else if (m2.opens > m1.opens) winnerSendId = bVariant.id;
+                   } else {
+                     if (m1.clicks > m2.clicks) winnerSendId = s.id;
+                     else if (m2.clicks > m1.clicks) winnerSendId = bVariant.id;
+                   }
+                   
+                   const timeElapsed = (new Date().getTime() - new Date(s.started_at).getTime()) / 3600000;
+                   const isReadyToPick = (timeElapsed >= s.ab_wait_hours) && !s.ab_winner_sent;
+
+                   return (
+                     <div key={s.id} className="p-5 border-2 border-indigo-100 rounded-2xl bg-indigo-50/30">
+                        <div className="flex justify-between items-center mb-4">
+                           <h3 className="font-black text-indigo-900 tracking-tight flex items-center gap-2">
+                             <LayoutTemplate className="w-5 h-5 text-indigo-600"/> 
+                             A/B Test en Curso (Evaluando por: {metricVar === 'opens' ? 'Aperturas' : 'Clicks'})
+                           </h3>
+                           <Badge className="bg-indigo-600 text-white border-transparent">Prueba A/B</Badge>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                           {renderSendCard(s, "Variante A", winnerSendId === s.id, metricVar)}
+                           {renderSendCard(bVariant, "Variante B", winnerSendId === bVariant.id, metricVar)}
+                        </div>
+                        <div className="mt-5 border-t border-indigo-200/50 pt-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                            <div className="text-sm">
+                              {s.ab_winner_sent ? (
+                                <p className="text-emerald-700 font-semibold bg-emerald-100 px-4 py-2 rounded-lg flex items-center"><CheckCircle className="w-4 h-4 mr-2"/> La variante ganadora ya fue despachada exitosamente al resto de la lista.</p>
+                              ) : (
+                                <p className="text-slate-600">Restan enviar mails al <strong>resto del segmento</strong>. Clickea para dispararlos automáticamente con la plantilla líder actual.</p>
+                              )}
+                            </div>
+                            {!s.ab_winner_sent && winnerSendId && (
+                               <Button onClick={() => handleSelectWinner(winnerSendId)} disabled={winnerLoading} className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 shadow border-amber-600 dark:border-amber-400 text-white font-bold h-11 shrink-0">
+                                  {winnerLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin/>" /> : <Trophy className="w-4 h-4 mr-2"/>}
+                                  Aprobar Líder y Enviar
+                               </Button>
+                            )}
+                            {!s.ab_winner_sent && !winnerSendId && isReadyToPick && (
+                               <p className="text-xs text-muted-foreground w-full sm:w-auto italic text-right">Ambas plantillas tienen igual rendimiento. Opciones neutrales en breve.</p>
+                            )}
+                        </div>
+                     </div>
+                   );
+                }
+
+                // If not AB Test 
                 return (
-                  <Card key={s.id} className={isAB ? 'border-primary/30' : ''}>
-                    <CardContent className="pt-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {isAB && <Badge variant="outline">Variante {s.ab_variant}</Badge>}
-                          <Badge variant={s.status === 'completed' ? 'default' : s.status === 'processing' ? 'secondary' : 'destructive'}>
-                            {s.status}
-                          </Badge>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(s.created_at).toLocaleString('es-ES')}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-4 gap-3">
-                        <div className="text-center p-2 rounded bg-muted/50">
-                          <p className="text-lg font-bold">{s.sent_count}</p>
-                          <p className="text-xs text-muted-foreground">Enviados</p>
-                        </div>
-                        <div className="text-center p-2 rounded bg-muted/50">
-                          <p className="text-lg font-bold flex items-center justify-center gap-1"><Eye className="h-4 w-4" />{metrics.opens}</p>
-                          <p className="text-xs text-muted-foreground">{openRate}% aperturas</p>
-                        </div>
-                        <div className="text-center p-2 rounded bg-muted/50">
-                          <p className="text-lg font-bold flex items-center justify-center gap-1"><MousePointerClick className="h-4 w-4" />{metrics.clicks}</p>
-                          <p className="text-xs text-muted-foreground">{clickRate}% clicks</p>
-                        </div>
-                        <div className="text-center p-2 rounded bg-muted/50">
-                          <p className="text-lg font-bold text-destructive">{s.failed_count}</p>
-                          <p className="text-xs text-muted-foreground">Fallidos</p>
-                        </div>
-                      </div>
-
-                      <Progress value={progress} className="h-1.5" />
-
-                      {canPickWinner && (
-                        <Button
-                          variant="outline" size="sm"
-                          className="w-full border-primary text-primary"
-                          onClick={() => handleSelectWinner(s.id)}
-                          disabled={winnerLoading}
-                        >
-                          {winnerLoading
-                            ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            : <Trophy className="h-4 w-4 mr-2" />
-                          }
-                          Elegir como ganadora y enviar al resto
-                        </Button>
-                      )}
-
-                      {s.ab_winner_sent && (
-                        <p className="text-xs text-center text-muted-foreground">✅ Ganador enviado al resto del segmento</p>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <div key={s.id} className="mb-4">
+                     {renderSendCard(s, "Envío Masivo Directo", false, 'opens')}
+                  </div>
                 );
               })
             )}
@@ -518,4 +705,6 @@ export default function Campaigns() {
       </Dialog>
     </div>
   );
+
+
 }

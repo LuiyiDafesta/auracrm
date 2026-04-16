@@ -215,7 +215,7 @@ export default function EmailBuilderPage() {
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Top Bar */}
       <div className="flex items-center gap-3 border-b px-4 py-2 bg-card shrink-0">
-        <Button variant="ghost" size="icon" onClick={() => navigate(campaignId ? '/campanas' : '/email-builder')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(campaignId ? `/campanas?send_campaign=${campaignId}` : '/email-builder')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <Input className="h-8 text-sm max-w-[240px]" value={name} onChange={(e) => setName(e.target.value)} />

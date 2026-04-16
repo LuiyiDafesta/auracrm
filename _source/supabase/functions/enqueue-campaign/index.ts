@@ -17,6 +17,7 @@ const BodySchema = z.object({
   template_id_b: z.string().uuid().optional(),
   ab_test_percentage: z.number().int().min(1).max(50).default(10),
   ab_wait_hours: z.number().int().min(1).max(168).default(24),
+  ab_winning_metric: z.enum(["opens", "clicks"]).default("opens"),
   // Date distribution
   distribute_over_days: z.boolean().default(false),
 });
@@ -77,7 +78,7 @@ Deno.serve(async (req) => {
     }
 
     const { campaign_id, segment_id, template_id, emails_per_second, from_email, from_name,
-            is_ab_test, template_id_b, ab_test_percentage, ab_wait_hours, distribute_over_days } = parsed.data;
+            is_ab_test, template_id_b, ab_test_percentage, ab_wait_hours, ab_winning_metric, distribute_over_days } = parsed.data;
 
     if (is_ab_test && !template_id_b) {
       return new Response(JSON.stringify({ error: "Se requiere una plantilla B para el A/B test" }), {
@@ -149,7 +150,7 @@ Deno.serve(async (req) => {
         emails_per_second, from_email: resolvedFromEmail, from_name: resolvedFromName,
         status: "processing", started_at: new Date().toISOString(),
         total_emails: testA.length,
-        is_ab_test: true, ab_variant: "A", ab_test_percentage, ab_wait_hours,
+        is_ab_test: true, ab_variant: "A", ab_test_percentage, ab_wait_hours, ab_winning_metric,
       }).select().single();
 
       if (errA) throw new Error(errA.message);
@@ -161,7 +162,7 @@ Deno.serve(async (req) => {
         status: "processing", started_at: new Date().toISOString(),
         total_emails: testB.length,
         is_ab_test: true, ab_variant: "B", ab_parent_id: sendA.id,
-        ab_test_percentage, ab_wait_hours, template_id_b: template_id_b!,
+        ab_test_percentage, ab_wait_hours, ab_winning_metric, template_id_b: template_id_b!,
       }).select().single();
 
       if (errB) throw new Error(errB.message);

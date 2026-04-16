@@ -67,7 +67,7 @@ export default function ContactDetail() {
       supabase.from('companies').select('*').order('name'),
       supabase.from('activities').select('*').eq('contact_id', id).order('created_at', { ascending: false }),
       supabase.from('contact_transactions').select('*').eq('contact_id', id).order('created_at', { ascending: false }),
-      supabase.from('opportunities').select('id, name, stage, value, probability, is_archived').eq('contact_id', id).eq('is_archived', false),
+      supabase.from('opportunities').select('id, name, stage, value, probability, is_archived').eq('contact_id', id),
       supabase.from('contact_tags').select('tag_id, tags(name, color)').eq('contact_id', id),
       supabase.from('segment_contacts').select('segment_id, segments(name)').eq('contact_id', id),
     ]);
@@ -238,9 +238,11 @@ export default function ContactDetail() {
   const Math_max = Math.max;
   const paginatedActivities = activities.slice((activityPage - 1) * activityPageSize, activityPage * activityPageSize);
 
-  const oppsSum = opportunities.filter((o: any) => o.stage === 'Ganado').reduce((sum: number, o: any) => sum + Number(o.value || 0), 0);
+  const oppsSum = opportunities.filter((o: any) => o.stage?.toLowerCase().includes('ganado')).reduce((sum: number, o: any) => sum + Number(o.value || 0), 0);
   const transSum = transactions.reduce((sum, t) => sum + (t.type === 'ingreso' ? Number(t.amount) : -Number(t.amount)), 0);
   const balance = oppsSum + transSum;
+
+  const activeOpportunities = opportunities.filter(o => !o.is_archived);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -349,7 +351,7 @@ export default function ContactDetail() {
                       <Tags className="h-3 w-3" /> {seg.name}
                     </Badge>
                   ))}
-                  {opportunities.map((opp: any) => (
+                  {activeOpportunities.map((opp: any) => (
                     <Badge key={opp.id} variant="outline" className="text-[10px] uppercase font-bold tracking-wider bg-green-50 text-green-700 border-green-200">
                       💰 {opp.name} ({opp.stage} - ${Number(opp.value || 0).toLocaleString()})
                     </Badge>
