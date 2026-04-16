@@ -162,7 +162,7 @@ export default function ContactDetail() {
     }
   };
 
-  const balance = transactions.reduce((sum, t) => sum + (t.type === 'ingreso' ? Number(t.amount) : -Number(t.amount)), 0);
+  // balance calculated later
 
   const renderScore = () => {
     const color = leadScore >= 80 ? 'text-green-500' : leadScore >= 50 ? 'text-yellow-500' : leadScore >= 20 ? 'text-orange-500' : 'text-muted-foreground';
