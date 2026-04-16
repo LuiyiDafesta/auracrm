@@ -680,7 +680,7 @@ export default function Campaigns() {
                             </div>
                             {!s.ab_winner_sent && winnerSendId && (
                                <Button onClick={() => handleSelectWinner(winnerSendId)} disabled={winnerLoading} className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 shadow border-amber-600 dark:border-amber-400 text-white font-bold h-11 shrink-0">
-                                  {winnerLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin/>" /> : <Trophy className="w-4 h-4 mr-2"/>}
+                                  {winnerLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trophy className="w-4 h-4 mr-2"/>}
                                   Aprobar Líder y Enviar
                                </Button>
                             )}
