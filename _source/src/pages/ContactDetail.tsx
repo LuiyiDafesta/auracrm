@@ -274,9 +274,12 @@ export default function ContactDetail() {
                 </div>
               </div>
 
-              {/* Lead score & status */}
+              {/* Lead score, status & balance */}
               <div className="flex items-center gap-4 flex-wrap">
                 {renderScore()}
+                <Badge variant={balance >= 0 ? "default" : "destructive"} className="text-xs h-6 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full">
+                  $ {balance.toLocaleString()}
+                </Badge>
                 {editMode ? (
                   <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
                     <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
