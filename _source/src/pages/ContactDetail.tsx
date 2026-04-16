@@ -74,7 +74,9 @@ export default function ContactDetail() {
     if (cRes.data) {
       setContact(cRes.data);
       setForm(cRes.data);
-      setLeadScore((cRes.data as any).lead_score || 0);
+      const dbScore = (cRes.data as any).lead_score || 0;
+      const maxOppProb = oppsRes.data?.reduce((max: number, o: any) => Math.max(max, o.probability || 0), 0) || 0;
+      setLeadScore(Math.max(dbScore, maxOppProb));
       if (cRes.data.company_id) {
         const comp = coRes.data?.find((c: any) => c.id === cRes.data.company_id);
         setCompany(comp || null);
@@ -236,6 +238,10 @@ export default function ContactDetail() {
   const Math_max = Math.max;
   const paginatedActivities = activities.slice((activityPage - 1) * activityPageSize, activityPage * activityPageSize);
 
+  const oppsSum = opportunities.filter((o: any) => o.stage === 'Ganado').reduce((sum: number, o: any) => sum + Number(o.value || 0), 0);
+  const transSum = transactions.reduce((sum, t) => sum + (t.type === 'ingreso' ? Number(t.amount) : -Number(t.amount)), 0);
+  const balance = oppsSum + transSum;
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <Button variant="ghost" onClick={() => navigate('/contactos')} className="gap-2">
@@ -345,7 +351,7 @@ export default function ContactDetail() {
                   ))}
                   {opportunities.map((opp: any) => (
                     <Badge key={opp.id} variant="outline" className="text-[10px] uppercase font-bold tracking-wider bg-green-50 text-green-700 border-green-200">
-                      💰 {opp.name} ({opp.stage})
+                      💰 {opp.name} ({opp.stage} - ${Number(opp.value || 0).toLocaleString()})
                     </Badge>
                   ))}
                 </div>
