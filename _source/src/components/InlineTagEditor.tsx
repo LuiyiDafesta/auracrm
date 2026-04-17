@@ -57,9 +57,12 @@ export function InlineTagEditor({ contactId, allTags, assignedTags, onTagsUpdate
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Badge variant="outline" className="h-6 px-1.5 text-[11px] border-dashed cursor-pointer bg-muted/40 hover:bg-muted/80 text-muted-foreground transition-colors" onClick={(e) => { e.stopPropagation(); }}>
+        <button 
+          className="inline-flex items-center rounded-full border border-dashed px-1.5 h-6 text-[11px] font-semibold cursor-pointer bg-muted/40 hover:bg-muted/80 text-muted-foreground transition-colors focus:outline-none" 
+          onClick={(e) => { e.stopPropagation(); }}
+        >
           <Plus className="h-3.5 w-3.5" />
-        </Badge>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-4 shadow-lg border-muted/50" align="start" onClick={(e) => e.stopPropagation()}>
         <div className="space-y-4">
