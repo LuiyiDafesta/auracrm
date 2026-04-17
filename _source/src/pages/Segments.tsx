@@ -35,6 +35,7 @@ const BASE_FIELDS = [
   { value: 'lead_score', label: 'Puntuación', type: 'number' },
   { value: 'created_at', label: 'Fecha de creación', type: 'date' },
   { value: 'tag', label: 'Etiqueta', type: 'tag' },
+  { value: 'segment', label: 'Membresía del segmento', type: 'segment' },
 ];
 
 const TEXT_OPERATORS = [
@@ -78,6 +79,11 @@ const TAG_OPERATORS = [
   { value: 'has_no_tags', label: 'no tiene etiquetas' },
 ];
 
+const SEGMENT_OPERATORS = [
+  { value: 'in_segment', label: 'incluye cualquiera' },
+  { value: 'not_in_segment', label: 'excluye cualquiera' },
+];
+
 function getFieldType(fieldValue: string, customFields: CustomField[]): string {
   const base = BASE_FIELDS.find(f => f.value === fieldValue);
   if (base) return base.type;
@@ -95,6 +101,7 @@ function getOperatorsForType(type: string) {
     case 'number': return NUMBER_OPERATORS;
     case 'date': return DATE_OPERATORS;
     case 'tag': return TAG_OPERATORS;
+    case 'segment': return SEGMENT_OPERATORS;
     default: return TEXT_OPERATORS;
   }
 }
@@ -146,7 +153,7 @@ export default function Segments() {
       const counts: Record<string, number> = {};
       const mCounts: Record<string, number> = {};
       for (const seg of segRes.data) {
-        counts[seg.id] = await countContactsForRules(seg.rules as unknown as SegmentRule[]);
+        counts[seg.id] = await countContactsForRules(seg.rules as unknown as SegmentRule[], segRes.data);
         const { count } = await supabase.from('segment_contacts').select('id', { count: 'exact', head: true }).eq('segment_id', seg.id);
         mCounts[seg.id] = count || 0;
       }
@@ -155,12 +162,12 @@ export default function Segments() {
     }
   };
 
-  const getContactsForRules = async (segRules: SegmentRule[]): Promise<any[]> => {
+  const getContactsForRules = async (segRules: SegmentRule[], allSegments: any[] = segments, visitedSegmentIds: Set<string> = new Set()): Promise<any[]> => {
     if (!user) return [];
     // Step 1: apply standard field filters via Supabase query
     let query = supabase.from('contacts').select('id, first_name, last_name, email, lead_score, status') as any;
     for (const rule of segRules) {
-      if (rule.field === 'tag' || rule.field.startsWith('cf_')) continue;
+      if (rule.field === 'tag' || rule.field === 'segment' || rule.field.startsWith('cf_')) continue;
       query = applyFilter(query, rule);
     }
     const { data: dbContacts } = await query;
@@ -215,6 +222,34 @@ export default function Segments() {
       }
     }
 
+    // Step 4: apply segment filters client-side
+    const segmentRules = segRules.filter(r => r.field === 'segment');
+    if (segmentRules.length > 0) {
+      for (const rule of segmentRules) {
+        const targetSegId = rule.value;
+        if (!targetSegId || visitedSegmentIds.has(targetSegId)) continue; // prevent infinite loops
+        
+        const targetSeg = allSegments.find(s => s.id === targetSegId);
+        if (!targetSeg) continue;
+        
+        visitedSegmentIds.add(targetSegId);
+        const targetContacts = await getContactsForRules(targetSeg.rules as SegmentRule[] || [], allSegments, visitedSegmentIds);
+        visitedSegmentIds.delete(targetSegId);
+
+        // also need manual contacts for target segment
+        const { data: manualRows } = await supabase.from('segment_contacts').select('contact_id').eq('segment_id', targetSegId);
+        const manualIds = (manualRows || []).map((r: any) => r.contact_id);
+        const targetContactIds = new Set([...targetContacts.map(c => c.id), ...manualIds]);
+
+        result = result.filter(c => {
+          const inSegment = targetContactIds.has(c.id);
+          if (rule.operator === 'in_segment') return inSegment;
+          if (rule.operator === 'not_in_segment') return !inSegment;
+          return true;
+        });
+      }
+    }
+
     return result;
   };
 
@@ -236,8 +271,8 @@ export default function Segments() {
     }
   };
 
-  const countContactsForRules = async (segRules: SegmentRule[]): Promise<number> => {
-    const contacts = await getContactsForRules(segRules);
+  const countContactsForRules = async (segRules: SegmentRule[], allSegments: any[] = segments): Promise<number> => {
+    const contacts = await getContactsForRules(segRules, allSegments);
     return contacts.length;
   };
 
@@ -431,6 +466,11 @@ export default function Segments() {
                             <Select value={rule.value} onValueChange={v => updateRule(i, 'value', v)}>
                               <SelectTrigger className="flex-1 min-w-[120px]"><SelectValue placeholder="Seleccionar etiqueta" /></SelectTrigger>
                               <SelectContent>{tags.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                          ) : fieldType === 'segment' ? (
+                            <Select value={rule.value} onValueChange={v => updateRule(i, 'value', v)}>
+                              <SelectTrigger className="flex-1 min-w-[120px]"><SelectValue placeholder="Seleccionar segmento" /></SelectTrigger>
+                              <SelectContent>{segments.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                             </Select>
                           ) : fieldType === 'date' ? (
                             <Input type="date" className="flex-1 min-w-[120px]" value={rule.value} onChange={e => updateRule(i, 'value', e.target.value)} />
