@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
+import { getContactsForRules, SegmentRule } from '@/lib/segment-utils';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Company = Database['public']['Tables']['companies']['Row'];
@@ -71,7 +72,7 @@ export default function Contacts() {
     const [c, co, seg, tg, sc, ct, cf] = await Promise.all([
       supabase.from('contacts').select('*').order('created_at', { ascending: false }),
       supabase.from('companies').select('*').order('name'),
-      supabase.from('segments').select('id, name').order('name'),
+      supabase.from('segments').select('id, name, rules').order('name'),
       supabase.from('tags').select('id, name, color').order('name'),
       supabase.from('segment_contacts').select('contact_id, segment_id'),
       supabase.from('contact_tags').select('contact_id, tag_id'),
@@ -83,14 +84,26 @@ export default function Contacts() {
     setTags((tg.data as TagInfo[]) || []);
     setCustomFields((cf.data as any[]) || []);
 
-    // Build contactSegments map
     const segMap: Record<string, SegmentInfo[]> = {};
     const segLookup = new Map((seg.data || []).map((s: any) => [s.id, s]));
     for (const row of (sc.data || []) as any[]) {
       const s = segLookup.get(row.segment_id);
       if (s) {
         if (!segMap[row.contact_id]) segMap[row.contact_id] = [];
-        segMap[row.contact_id].push(s);
+        segMap[row.contact_id].push({ id: s.id, name: s.name });
+      }
+    }
+
+    // Evaluate dynamic rules
+    for (const s of (seg.data || [])) {
+      if (s.rules) {
+        const matched = await getContactsForRules(s.rules as SegmentRule[], seg.data as any[]);
+        for (const c of matched) {
+          if (!segMap[c.id]) segMap[c.id] = [];
+          if (!segMap[c.id].some(existing => existing.id === s.id)) {
+            segMap[c.id].push({ id: s.id, name: s.name });
+          }
+        }
       }
     }
     setContactSegments(segMap);

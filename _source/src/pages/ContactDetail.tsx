@@ -19,6 +19,7 @@ import {
   Calendar, Globe, ChevronDown, ChevronUp, Save, Pencil, EyeOff, Plus, Minus, DollarSign,
   ChevronLeft, ChevronRight, Tags
 } from 'lucide-react';
+import { getContactsForRules, SegmentRule } from '@/lib/segment-utils';
 
 interface CustomField {
   id: string;
@@ -60,7 +61,7 @@ export default function ContactDetail() {
 
   const fetchAll = async () => {
     if (!user || !id) return;
-    const [cRes, cfRes, cvRes, coRes, actRes, transRes, oppsRes, tagsRes, segmentsRes] = await Promise.all([
+    const [cRes, cfRes, cvRes, coRes, actRes, transRes, oppsRes, tagsRes, segmentsRes, allSegmentsRes] = await Promise.all([
       supabase.from('contacts').select('*').eq('id', id).single(),
       supabase.from('custom_fields').select('*').order('sort_order'),
       supabase.from('contact_custom_values').select('*').eq('contact_id', id),
@@ -69,7 +70,8 @@ export default function ContactDetail() {
       supabase.from('contact_transactions').select('*').eq('contact_id', id).order('created_at', { ascending: false }),
       supabase.from('opportunities').select('id, name, stage, value, probability, is_archived').eq('contact_id', id),
       supabase.from('contact_tags').select('tag_id, tags(name, color)').eq('contact_id', id),
-      supabase.from('segment_contacts').select('segment_id, segments(name)').eq('contact_id', id),
+      supabase.from('segment_contacts').select('segment_id, segments(id, name)').eq('contact_id', id),
+      supabase.from('segments').select('id, name, rules').order('name'),
     ]);
     if (cRes.data) {
       setContact(cRes.data);
@@ -92,7 +94,23 @@ export default function ContactDetail() {
     setTransactions(transRes.data || []);
     setOpportunities(oppsRes.data || []);
     setTags(tagsRes.data?.map(t => t.tags) || []);
-    setSegments(segmentsRes.data?.map(s => s.segments) || []);
+    
+    const manualSegments = segmentsRes.data?.map(s => s.segments) || [];
+    const allSeg = allSegmentsRes.data || [];
+    
+    // Check dynamic rules for this contact
+    const allAssigned = [...manualSegments] as any[];
+    for (const s of allSeg) {
+      if (s.rules) {
+        const matched = await getContactsForRules(s.rules as SegmentRule[], allSeg);
+        if (matched.some(c => c.id === id)) {
+          if (!allAssigned.some(existing => existing.id === s.id)) {
+            allAssigned.push({ id: s.id, name: s.name });
+          }
+        }
+      }
+    }
+    setSegments(allAssigned);
   };
 
   useEffect(() => { fetchAll(); }, [user, id]);
