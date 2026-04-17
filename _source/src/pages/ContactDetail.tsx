@@ -75,7 +75,8 @@ export default function ContactDetail() {
       setContact(cRes.data);
       setForm(cRes.data);
       const dbScore = (cRes.data as any).lead_score || 0;
-      const maxOppProb = oppsRes.data?.reduce((max: number, o: any) => Math.max(max, o.probability || 0), 0) || 0;
+      const activeOpps = oppsRes.data?.filter((o: any) => !o.is_archived) || [];
+      const maxOppProb = activeOpps.reduce((max: number, o: any) => Math.max(max, o.probability || 0), 0);
       setLeadScore(Math.max(dbScore, maxOppProb));
       if (cRes.data.company_id) {
         const comp = coRes.data?.find((c: any) => c.id === cRes.data.company_id);
