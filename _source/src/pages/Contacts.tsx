@@ -55,6 +55,8 @@ export default function Contacts() {
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterSegment, setFilterSegment] = useState<string>('');
   const [filterTag, setFilterTag] = useState<string>('');
+  const [filterScoreMin, setFilterScoreMin] = useState<string>('');
+  const [filterScoreMax, setFilterScoreMax] = useState<string>('');
   const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>();
   const [filterDateTo, setFilterDateTo] = useState<Date | undefined>();
 
@@ -179,9 +181,15 @@ export default function Contacts() {
       to.setHours(23, 59, 59, 999);
       result = result.filter(c => new Date(c.created_at) <= to);
     }
+    if (filterScoreMin !== '') {
+      result = result.filter(c => (c.lead_score || 0) >= parseInt(filterScoreMin, 10));
+    }
+    if (filterScoreMax !== '') {
+      result = result.filter(c => (c.lead_score || 0) <= parseInt(filterScoreMax, 10));
+    }
 
     return result;
-  }, [contacts, search, filterStatus, filterSegment, filterTag, filterDateFrom, filterDateTo, contactSegments, contactTagIds]);
+  }, [contacts, search, filterStatus, filterSegment, filterTag, filterDateFrom, filterDateTo, filterScoreMin, filterScoreMax, contactSegments, contactTagIds]);
 
   // Pagination
   const paginated = useMemo(() => {
@@ -198,6 +206,8 @@ export default function Contacts() {
     setFilterStatus('');
     setFilterSegment('');
     setFilterTag('');
+    setFilterScoreMin('');
+    setFilterScoreMax('');
     setFilterDateFrom(undefined);
     setFilterDateTo(undefined);
   };
@@ -444,6 +454,14 @@ export default function Contacts() {
                       <Calendar mode="single" selected={filterDateTo} onSelect={setFilterDateTo} locale={es} className="p-3 pointer-events-auto" />
                     </PopoverContent>
                   </Popover>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Puntaje Min.</label>
+                  <Input type="number" placeholder="Ej: 20" value={filterScoreMin} onChange={e => setFilterScoreMin(e.target.value)} className="h-8 w-[90px]" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Puntaje Max.</label>
+                  <Input type="number" placeholder="Ej: 80" value={filterScoreMax} onChange={e => setFilterScoreMax(e.target.value)} className="h-8 w-[90px]" />
                 </div>
               </div>
             )}
