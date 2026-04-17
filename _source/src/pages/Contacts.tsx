@@ -522,8 +522,8 @@ export default function Contacts() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center group/row" onClick={e => e.stopPropagation()}>
-                      <BadgeGroup items={(contactTags[c.id] || []).map(t => ({ id: t.id, name: t.name, color: t.color, icon: <Tag className="w-2.5 h-2.5"/> }))} maxVisible={2} />
-                      <InlineTagEditor contactId={c.id} allTags={tags} assignedTags={contactTags[c.id] || []} onTagsUpdated={fetchData} />
+                      <BadgeGroup items={(contactTagIds[c.id] || []).map(id => tags.find(t => t.id === id)).filter(Boolean).map(t => ({ id: t!.id, name: t!.name, color: t!.color, icon: <Tag className="w-2.5 h-2.5"/> }))} maxVisible={2} />
+                      <InlineTagEditor contactId={c.id} allTags={tags} assignedTags={(contactTagIds[c.id] || []).map(id => tags.find(t => t.id === id)).filter(Boolean) as any[]} onTagsUpdated={fetchData} />
                     </div>
                   </TableCell>
                   <TableCell>
