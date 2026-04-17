@@ -32,7 +32,7 @@ export function BadgeGroup({ items, maxVisible = 2, className }: BadgeGroupProps
         <Badge
           key={item.id}
           variant="outline"
-          className="text-[10px] h-5 transition-shadow hover:shadow-sm"
+          className="text-[11px] h-6 px-2 whitespace-nowrap transition-shadow hover:shadow-sm"
           style={
             item.color
               ? {
@@ -57,18 +57,18 @@ export function BadgeGroup({ items, maxVisible = 2, className }: BadgeGroupProps
             <TooltipTrigger asChild>
               <Badge
                 variant="secondary"
-                className="text-[10px] h-5 cursor-pointer bg-muted hover:bg-muted/80 text-muted-foreground px-1.5"
+                className="text-[11px] h-6 cursor-pointer bg-muted hover:bg-muted/80 text-muted-foreground px-2"
               >
                 +{hiddenItems.length}
               </Badge>
             </TooltipTrigger>
-            <TooltipContent side="top" align="center" className="max-w-[250px] p-2 bg-background/95 backdrop-blur-sm border shadow-lg">
-              <div className="flex flex-wrap gap-1.5">
+            <TooltipContent side="top" align="center" className="max-w-[280px] p-3 bg-background/95 backdrop-blur-sm border shadow-lg">
+              <div className="flex flex-wrap gap-2">
                 {hiddenItems.map(item => (
                   <Badge
                     key={item.id}
                     variant="outline"
-                    className="text-[10px] h-5"
+                    className="text-[11px] h-6 px-2"
                     style={
                       item.color
                         ? {

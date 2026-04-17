@@ -57,11 +57,11 @@ export function InlineTagEditor({ contactId, allTags, assignedTags, onTagsUpdate
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); }}>
-          <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-        </Button>
+        <Badge variant="outline" className="h-6 px-1.5 text-[11px] border-dashed cursor-pointer bg-muted/40 hover:bg-muted/80 text-muted-foreground transition-colors" onClick={(e) => { e.stopPropagation(); }}>
+          <Plus className="h-3.5 w-3.5" />
+        </Badge>
       </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-4" align="start" onClick={(e) => e.stopPropagation()}>
+      <PopoverContent className="w-[300px] p-4 shadow-lg border-muted/50" align="start" onClick={(e) => e.stopPropagation()}>
         <div className="space-y-4">
           <div>
             <h4 className="text-sm font-medium mb-1">Editor de Etiquetas</h4>
