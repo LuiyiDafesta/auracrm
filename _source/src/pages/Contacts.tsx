@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Pencil, Trash2, Filter, X, CalendarIcon, Users, Tag, ChevronDown, Upload, Download } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Filter, X, CalendarIcon, Users, Tag, Tags, ChevronDown, Upload, Download } from 'lucide-react';
 import { ImportContactsDialog } from '@/components/ImportContactsDialog';
 import { TagManager } from '@/components/TagManager';
 import { TablePagination } from '@/components/TablePagination';
@@ -23,6 +23,8 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
 import { getContactsForRules, SegmentRule } from '@/lib/segment-utils';
+import { BadgeGroup } from '@/components/ui/badge-group';
+import { InlineTagEditor } from '@/components/InlineTagEditor';
 
 type Contact = Database['public']['Tables']['contacts']['Row'];
 type Company = Database['public']['Tables']['companies']['Row'];
@@ -508,12 +510,7 @@ export default function Contacts() {
                   <TableCell className="text-sm">{c.email || '—'}</TableCell>
                   <TableCell>{getCompanyName(c.company_id)}</TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {(contactSegments[c.id] || []).map(s => (
-                        <Badge key={s.id} variant="outline" className="text-[10px] h-5">{s.name}</Badge>
-                      ))}
-                      {!(contactSegments[c.id]?.length) && <span className="text-xs text-muted-foreground">—</span>}
-                    </div>
+                    <BadgeGroup items={(contactSegments[c.id] || []).map(s => ({ id: s.id, name: s.name, icon: <Tags className="w-2.5 h-2.5"/> }))} maxVisible={2} />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -523,7 +520,12 @@ export default function Contacts() {
                       <span className="text-xs text-muted-foreground">{c.lead_score || 0}</span>
                     </div>
                   </TableCell>
-                  <TableCell><TagManager contactId={c.id} /></TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center group/row" onClick={e => e.stopPropagation()}>
+                      <BadgeGroup items={(contactTags[c.id] || []).map(t => ({ id: t.id, name: t.name, color: t.color, icon: <Tag className="w-2.5 h-2.5"/> }))} maxVisible={2} />
+                      <InlineTagEditor contactId={c.id} allTags={tags} assignedTags={contactTags[c.id] || []} onTagsUpdated={fetchData} />
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${c.status === 'activo' ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
                       {c.status}
