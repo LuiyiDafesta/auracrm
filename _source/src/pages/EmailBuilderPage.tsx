@@ -175,6 +175,7 @@ export default function EmailBuilderPage() {
 
   const handleCanvasDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const type = e.dataTransfer.getData('block-type') as BlockType;
     if (type) addBlock(type);
   };
