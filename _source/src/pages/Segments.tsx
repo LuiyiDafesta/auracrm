@@ -121,7 +121,6 @@ export default function Segments() {
   const [manualSegment, setManualSegment] = useState<any>(null);
   const [manualContactIds, setManualContactIds] = useState<string[]>([]);
   const [manualSearch, setManualSearch] = useState('');
-  const [manualSearch, setManualSearch] = useState('');
 
   const allFields = [
     ...BASE_FIELDS.map(f => ({ value: f.value, label: f.label })),
