@@ -216,10 +216,14 @@ export default function ContactDetail() {
     const onChange = (v: string) => setCustomValues({ ...customValues, [field.id]: v });
     if (!editMode) {
       if (!value && !field.is_visible && !showHidden) return null;
+      const displayValue = field.field_type === 'checkbox' ? (value === 'true' ? 'Sí' : 'No') : value || '—';
       return (
-        <div key={field.id} className="flex justify-between items-center py-2">
-          <span className="text-sm text-muted-foreground">{field.name}</span>
-          <span className="text-sm font-medium">{field.field_type === 'checkbox' ? (value === 'true' ? 'Sí' : 'No') : value || '—'}</span>
+        <div className="text-sm font-medium break-words text-foreground">
+          {field.field_type === 'url' && value ? (
+            <a href={value} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">{displayValue}</a>
+          ) : (
+            <span className="truncate whitespace-pre-wrap break-words line-clamp-4">{displayValue}</span>
+          )}
         </div>
       );
     }
@@ -588,14 +592,14 @@ export default function ContactDetail() {
                 ) : (
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {visibleFields.map(f => (
-                      <div key={f.id} className="flex flex-col gap-1 p-3 rounded-lg border shadow-sm">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{f.name}</span>
+                      <div key={f.id} className="flex flex-col gap-1.5 p-3 rounded-lg border shadow-sm overflow-hidden bg-card">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase truncate">{f.name}</span>
                         {renderCustomFieldInput(f)}
                       </div>
                     ))}
                     {showHidden && hiddenFields.map(f => (
-                      <div key={f.id} className="flex flex-col gap-1 p-3 rounded-lg border border-dashed bg-muted/30">
-                        <span className="text-[10px] font-bold text-muted-foreground flex items-center gap-1 opacity-70"><EyeOff className="h-3 w-3"/>{f.name}</span>
+                      <div key={f.id} className="flex flex-col gap-1.5 p-3 rounded-lg border border-dashed bg-muted/30 overflow-hidden">
+                        <span className="text-[10px] font-bold text-muted-foreground flex items-center gap-1 opacity-70 truncate"><EyeOff className="h-3 w-3 shrink-0"/>{f.name}</span>
                         <div className="opacity-70">{renderCustomFieldInput(f)}</div>
                       </div>
                     ))}
