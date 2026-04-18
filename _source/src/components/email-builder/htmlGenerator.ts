@@ -14,10 +14,11 @@ export function blocksToHtml(blocks: EmailBlock[], previewWidth = 600, canvasSet
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <style type="text/css">
+  *, *:before, *:after { box-sizing: border-box; }
   body{margin:0;padding:0;background:${bg};font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
   table{border-spacing:0;}
   img{max-width:100%;height:auto;display:block;border:0;}
-  .email-wrapper{width:100%;max-width:${previewWidth}px;margin:0 auto;background:${contentBg};border-radius:${radius}px;overflow:hidden;}
+  .email-wrapper{width:100%;max-width:${previewWidth}px;margin:0 auto;background:${contentBg};border-radius:${radius}px;overflow:hidden;box-sizing:border-box;}
 </style>
 </head>
 <body style="margin:0;padding:0;background:${bg};">
@@ -27,7 +28,7 @@ export function blocksToHtml(blocks: EmailBlock[], previewWidth = 600, canvasSet
     <tr>
     <td style="padding:${padding}px;">
     <![endif]-->
-    <div style="max-width:${previewWidth}px;margin:0 auto;background:${contentBg};border-radius:${radius}px;padding:${padding}px;" class="email-wrapper">
+    <div style="max-width:${previewWidth}px;margin:0 auto;background:${contentBg};border-radius:${radius}px;padding:${padding}px;box-sizing:border-box;" class="email-wrapper">
       <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
           <td>
