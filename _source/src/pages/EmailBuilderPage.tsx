@@ -28,11 +28,12 @@ export default function EmailBuilderPage() {
   const [blocks, setBlocks] = useState<EmailBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
-  const [canvasSettings, setCanvasSettings] = useState({
+  const [canvasSettings, setCanvasSettings] = useState<any>({
     bgColor: '#f4f4f5',
     contentBgColor: '#ffffff',
     contentPadding: '16',
     contentBorderRadius: '8',
+    footerText: '',
   });
   const [canvasSelected, setCanvasSelected] = useState(false);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
@@ -78,7 +79,13 @@ export default function EmailBuilderPage() {
     if (data) {
       setName(data.name);
       setSubject(data.subject);
-      setBlocks((data.blocks as unknown as EmailBlock[]) || []);
+      
+      const loadedBlocks = (data.blocks as unknown as EmailBlock[]) || [];
+      const settingsBlock = loadedBlocks.find(b => b.type === 'canvas_settings');
+      if (settingsBlock) {
+        setCanvasSettings({ ...canvasSettings, ...settingsBlock.props });
+      }
+      setBlocks(loadedBlocks.filter(b => b.type !== 'canvas_settings'));
     }
   };
 
@@ -185,10 +192,17 @@ export default function EmailBuilderPage() {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    const html = blocksToHtml(blocks);
+    const html = blocksToHtml(blocks, previewWidth, canvasSettings);
+    
+    // Save settings as a virtual block at the beginning
+    const blocksToSave = [
+      { id: 'canvas-settings', type: 'canvas_settings', props: canvasSettings },
+      ...blocks
+    ];
+
     const payload = {
       name, subject,
-      blocks: blocks as unknown as Record<string, any>[],
+      blocks: blocksToSave as unknown as Record<string, any>[],
       html_content: html,
       user_id: user.id,
       campaign_id: campaignId || null,
@@ -289,6 +303,14 @@ export default function EmailBuilderPage() {
               </div>
             )}
           </div>
+          {canvasSettings.footerText && (
+            <div 
+              className="mx-auto mt-6 text-center text-xs text-muted-foreground whitespace-pre-wrap px-4"
+              style={{ maxWidth: previewWidth }}
+            >
+              {canvasSettings.footerText}
+            </div>
+          )}
         </div>
 
         {/* Right: Properties */}
@@ -310,12 +332,12 @@ export default function EmailBuilderPage() {
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader><DialogTitle>Vista previa</DialogTitle></DialogHeader>
-          <iframe srcDoc={blocksToHtml(blocks, previewWidth)} className="w-full h-[70vh] border rounded" />
+          <iframe srcDoc={blocksToHtml(blocks, previewWidth, canvasSettings)} className="w-full h-[70vh] border rounded" />
         </DialogContent>
       </Dialog>
 
       {/* Code Dialog — editable HTML */}
-      <Dialog open={showCode} onOpenChange={(open) => { setShowCode(open); if (open) { setHtmlSource(blocksToHtml(blocks, previewWidth)); setHtmlMode(false); } }}>
+      <Dialog open={showCode} onOpenChange={(open) => { setShowCode(open); if (open) { setHtmlSource(blocksToHtml(blocks, previewWidth, canvasSettings)); setHtmlMode(false); } }}>
         <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
@@ -343,7 +365,7 @@ export default function EmailBuilderPage() {
                 spellCheck={false}
               />
             ) : (
-              <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded">{blocksToHtml(blocks, previewWidth)}</pre>
+              <pre className="text-xs whitespace-pre-wrap bg-muted p-4 rounded">{blocksToHtml(blocks, previewWidth, canvasSettings)}</pre>
             )}
           </ScrollArea>
         </DialogContent>

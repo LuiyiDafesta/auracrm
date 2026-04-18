@@ -1,17 +1,10 @@
-import { EmailBlock, VARIABLE_LIST } from './types';
+import { EmailBlock, VARIABLE_LIST, CanvasSettings } from './types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-
-export interface CanvasSettings {
-  bgColor: string;
-  contentBgColor: string;
-  contentPadding: string;
-  contentBorderRadius: string;
-}
 
 interface PropertiesPanelProps {
   block: EmailBlock | null;
@@ -48,6 +41,15 @@ export function PropertiesPanel({ block, onUpdate, canvasSelected, canvasSetting
         <div className="space-y-1">
           <Label className="text-xs">Radio borde ({canvasSettings.contentBorderRadius}px)</Label>
           <Slider value={[parseInt(canvasSettings.contentBorderRadius)]} min={0} max={24} step={2} onValueChange={([v]) => onUpdateCanvas({ ...canvasSettings, contentBorderRadius: String(v) })} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Nota al pie (desuscripción/legales)</Label>
+          <Textarea 
+            className="text-xs min-h-[80px]" 
+            value={canvasSettings.footerText || ''} 
+            onChange={(e) => onUpdateCanvas({ ...canvasSettings, footerText: e.target.value })} 
+            placeholder="Estás recibiendo este correo porque..." 
+          />
         </div>
       </div>
     );

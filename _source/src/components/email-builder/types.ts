@@ -1,4 +1,4 @@
-export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'columns' | 'heading' | 'social';
+export type BlockType = 'text' | 'image' | 'button' | 'divider' | 'spacer' | 'columns' | 'heading' | 'social' | 'canvas_settings';
 
 export interface EmailBlock {
   id: string;
@@ -15,7 +15,16 @@ export const defaultBlockProps: Record<BlockType, Record<string, any>> = {
   spacer: { height: '30' },
   columns: { columns: 2, gap: '10', padding: '10', children: [[], []] },
   social: { networks: ['facebook', 'twitter', 'instagram', 'linkedin'], align: 'center', iconSize: '32', padding: '10' },
+  canvas_settings: { bgColor: '#f4f4f5', contentBgColor: '#ffffff', contentPadding: '16', contentBorderRadius: '8', footerText: '' },
 };
+
+export interface CanvasSettings {
+  bgColor: string;
+  contentBgColor: string;
+  contentPadding: string;
+  contentBorderRadius: string;
+  footerText?: string;
+}
 
 export interface EmailTemplate {
   id: string;
