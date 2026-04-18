@@ -159,8 +159,8 @@ function InlineEditable({ html, onChange, style, tag }: { html: string; onChange
       suppressContentEditableWarning
       onInput={handleInput}
       onBlur={handleInput}
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => {}}
+      onMouseDown={(e) => {}}
       style={style}
       dangerouslySetInnerHTML={{ __html: html }}
     />

@@ -243,12 +243,14 @@ export default function EmailBuilderPage() {
 
         {/* Center: Canvas */}
         <div
-          className="flex-1 overflow-auto p-6"
+          className="flex-1 overflow-auto p-8 pb-64"
           style={{ backgroundColor: canvasSettings.bgColor }}
           onClick={() => { setSelectedBlockId(null); setSelectedChildId(null); setCanvasSelected(true); }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleCanvasDrop}
         >
           <div
-            className={`mx-auto min-h-[400px] transition-all border-2 ${canvasSelected && !selectedBlockId ? 'border-primary shadow-md' : 'border-transparent'}`}
+            className={`mx-auto min-h-[600px] transition-all border-2 ${canvasSelected && !selectedBlockId ? 'border-primary shadow-md' : 'border-transparent'}`}
             style={{
               maxWidth: previewWidth,
               backgroundColor: canvasSettings.contentBgColor,
