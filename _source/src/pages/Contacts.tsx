@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -45,15 +45,17 @@ export default function Contacts() {
   const [contactSegments, setContactSegments] = useState<Record<string, SegmentInfo[]>>({});
   const [contactTagIds, setContactTagIds] = useState<Record<string, string[]>>({});
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', position: '', company_id: '', status: 'activo', notes: '' });
 
   // Filters
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(!!searchParams.get('segment'));
   const [filterStatus, setFilterStatus] = useState<string>('');
-  const [filterSegment, setFilterSegment] = useState<string>('');
+  const [filterSegment, setFilterSegment] = useState<string>(searchParams.get('segment') || '');
   const [filterTag, setFilterTag] = useState<string>('');
   const [filterScoreMin, setFilterScoreMin] = useState<string>('');
   const [filterScoreMax, setFilterScoreMax] = useState<string>('');
@@ -145,7 +147,15 @@ export default function Contacts() {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('contacts').delete().eq('id', id);
+    const { error } = await supabase.from('contacts').delete().eq('id', id);
+    if (error) {
+      toast({ 
+        title: 'Error al eliminar', 
+        description: 'No se puede eliminar el contacto. Posiblemente tenga información asociada (oportunidades, notas, etc).', 
+        variant: 'destructive' 
+      });
+      return;
+    }
     toast({ title: 'Contacto eliminado' });
     fetchData();
   };
@@ -199,6 +209,19 @@ export default function Contacts() {
 
   // Reset page on filter change
   useEffect(() => { setPage(1); }, [search, filterStatus, filterSegment, filterTag, filterDateFrom, filterDateTo, pageSize]);
+
+  // Sync segment filter to URL
+  useEffect(() => {
+    if (filterSegment) {
+      if (searchParams.get('segment') !== filterSegment) {
+        searchParams.set('segment', filterSegment);
+        setSearchParams(searchParams, { replace: true });
+      }
+    } else if (searchParams.has('segment')) {
+      searchParams.delete('segment');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [filterSegment, searchParams, setSearchParams]);
 
   const activeFilterCount = [filterStatus, filterSegment, filterTag, filterDateFrom, filterDateTo].filter(Boolean).length;
 
