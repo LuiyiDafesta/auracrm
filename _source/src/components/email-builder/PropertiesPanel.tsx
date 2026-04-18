@@ -36,7 +36,7 @@ export function PropertiesPanel({ block, onUpdate, canvasSelected, canvasSetting
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Padding contenido ({canvasSettings.contentPadding}px)</Label>
-          <Slider value={[parseInt(canvasSettings.contentPadding)]} min={0} max={60} step={4} onValueChange={([v]) => onUpdateCanvas({ ...canvasSettings, contentPadding: String(v) })} />
+          <Slider value={[parseInt(canvasSettings.contentPadding) || 0]} min={0} max={160} step={4} onValueChange={([v]) => onUpdateCanvas({ ...canvasSettings, contentPadding: String(v) })} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Radio borde ({canvasSettings.contentBorderRadius}px)</Label>
@@ -83,7 +83,7 @@ export function PropertiesPanel({ block, onUpdate, canvasSelected, canvasSetting
   const renderPaddingField = () => (
     <div className="space-y-1">
       <Label className="text-xs">Padding ({p.padding}px)</Label>
-      <Slider value={[parseInt(p.padding || '10')]} min={0} max={60} step={5} onValueChange={([v]) => update('padding', String(v))} />
+      <Slider value={[parseInt(p.padding || '10')]} min={0} max={120} step={5} onValueChange={([v]) => update('padding', String(v))} />
     </div>
   );
 
