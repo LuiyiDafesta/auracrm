@@ -8,7 +8,7 @@ export function ActionNode({ data, selected }: any) {
   let detail = '';
   if (data.nodeType === 'wait') {
     const val = data.config?.wait_value || 1;
-    const unit = data.config?.wait_unit === 'hours' ? 'hora(s)' : 'día(s)';
+    const unit = data.config?.wait_unit === 'minutes' ? 'minuto(s)' : data.config?.wait_unit === 'hours' ? 'hora(s)' : 'día(s)';
     detail = `${val} ${unit}`;
   }
   if (data.nodeType === 'send_email') detail = data.config?.template_name || '';

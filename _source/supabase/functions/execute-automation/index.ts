@@ -174,10 +174,12 @@ async function executeFromNode(automation: any, run: any, workflow: any, nodeId:
     const actionType = node.data.nodeType;
 
     if (actionType === "wait") {
-      const hours = node.data.config?.wait_unit === "hours"
-        ? (node.data.config?.wait_value || 1)
-        : (node.data.config?.wait_value || 1) * 24;
-      const waitUntil = new Date(Date.now() + hours * 3600000).toISOString();
+      let multiplier = 86400000; // default days in ms
+      if (node.data.config?.wait_unit === "minutes") multiplier = 60000;
+      else if (node.data.config?.wait_unit === "hours") multiplier = 3600000;
+      
+      const delayMs = (node.data.config?.wait_value || 1) * multiplier;
+      const waitUntil = new Date(Date.now() + delayMs).toISOString();
 
       await supabase.from("automation_runs").update({
         status: "waiting",
