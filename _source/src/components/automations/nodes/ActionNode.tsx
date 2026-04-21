@@ -13,6 +13,7 @@ export function ActionNode({ data, selected }: any) {
   }
   if (data.nodeType === 'send_email') detail = data.config?.template_name || '';
   if (data.nodeType === 'add_tag' || data.nodeType === 'remove_tag') detail = data.config?.tag_name || '';
+  if (data.nodeType === 'add_to_segment' || data.nodeType === 'remove_from_segment') detail = data.config?.segment_name || '';
   if (data.nodeType === 'update_status') detail = data.config?.new_status || '';
   if (data.nodeType === 'update_lead_score') {
     const op = data.config?.operation === 'add' ? '+' : data.config?.operation === 'subtract' ? '-' : '=';
