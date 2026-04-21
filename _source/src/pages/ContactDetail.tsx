@@ -154,7 +154,6 @@ export default function ContactDetail() {
     const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
     await supabase.from('contacts').update({ avatar_url: urlData.publicUrl }).eq('id', contact.id);
     setUploading(false);
-    setUploading(false);
     fetchAll();
   };
 
@@ -257,8 +256,6 @@ export default function ContactDetail() {
 
 
   const totalPages = Math.ceil(activities.length / activityPageSize) || 1;
-  const Math_min = Math.min;
-  const Math_max = Math.max;
   const paginatedActivities = activities.slice((activityPage - 1) * activityPageSize, activityPage * activityPageSize);
 
   const oppsSum = opportunities.filter((o: any) => o.stage?.toLowerCase().includes('ganado')).reduce((sum: number, o: any) => sum + Number(o.value || 0), 0);
