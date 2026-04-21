@@ -14,7 +14,7 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
     return new Response(JSON.stringify({ error: "Missing authorization" }), {
-      status: 401,
+      status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -26,8 +26,8 @@ Deno.serve(async (req: Request) => {
   const token = authHeader.replace("Bearer ", "");
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
   if (authErr || !user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
+    return new Response(JSON.stringify({ error: "Unauthorized user mapping", details: authErr }), {
+      status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -73,22 +73,43 @@ Deno.serve(async (req: Request) => {
       }
 
       try {
-        const res = await fetch(`${apiUrl}/message/sendText/${instance}`, {
+        let fetchUrl = "";
+        if (apiUrl.includes("/send/text") || apiUrl.includes("/message/sendText")) {
+          fetchUrl = apiUrl.replace(/\/$/, ''); // LSNethub path, instance is implicit in apikey
+        } else {
+          const cleanUrl = apiUrl.replace(/\/$/, '');
+          fetchUrl = `${cleanUrl}/message/sendText/${instance}`; // Evo classic
+        }
+        
+        const reqBody = {
+            number: recipient.replace('@s.whatsapp.net', ''),
+            text: content,
+            options: { delay: 1200, presence: "composing" }
+        };
+        
+        const res = await fetch(fetchUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            apikey: apiKey,
+            apikey: apiKey.trim(),
           },
-          body: JSON.stringify({
-            number: recipient,
-            text: content,
-          }),
+          body: JSON.stringify(reqBody),
         });
-        const data = await res.json();
-        externalId = data.key?.id || null;
-        if (!res.ok) sendError = JSON.stringify(data);
+        
+        const debugInfo = `[URL: ${fetchUrl} | apikey: ...${apiKey.trim().slice(-4)} | len: ${apiKey.length}]`;
+        const contentType = res.headers.get("content-type") || "";
+        
+        if (contentType.includes("application/json")) {
+          const data = await res.json();
+          externalId = data.key?.id || data.id || null;
+          if (!res.ok) sendError = `HTTP ${res.status} ${debugInfo}: ` + JSON.stringify(data);
+        } else {
+          const textResponse = await res.text();
+          if (!res.ok) sendError = `HTTP ${res.status} ${debugInfo}: ` + textResponse;
+          else externalId = "sent-text-" + Date.now();
+        }
       } catch (e) {
-        sendError = `Evolution API error: ${e.message}`;
+        sendError = `Fetch/Network error: ${e.message}`;
       }
       break;
     }
@@ -160,6 +181,16 @@ Deno.serve(async (req: Request) => {
   }
 
   if (sendError) {
+    // Insertamos el error en la base de datos para depurar
+    await supabase.from("channel_messages").insert({
+      user_id: user.id,
+      channel_id,
+      direction: "inbound",
+      sender_name: "Error del Bot (Debug)",
+      sender_identifier: recipient,
+      content: "Error al enviar: " + sendError,
+    });
+
     return new Response(JSON.stringify({ error: sendError }), {
       status: 502,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

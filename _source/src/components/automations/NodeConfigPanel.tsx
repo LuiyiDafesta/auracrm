@@ -31,6 +31,10 @@ export function NodeConfigPanel({ node, onUpdate, onDelete }: Props) {
   const updateConfig = (key: string, value: any) => {
     onUpdate(node.id, { ...node.data, config: { ...config, [key]: value } });
   };
+  
+  const updateConfigMultiple = (updates: Record<string, any>) => {
+    onUpdate(node.id, { ...node.data, config: { ...config, ...updates } });
+  };
 
   const nodeType = node.data.nodeType;
   const isTrigger = node.type === 'trigger';
@@ -62,8 +66,7 @@ export function NodeConfigPanel({ node, onUpdate, onDelete }: Props) {
           <label className="text-xs font-medium">Etiqueta</label>
           <Select value={config.tag_id || ''} onValueChange={v => {
             const tag = tags.find(t => t.id === v);
-            updateConfig('tag_id', v);
-            if (tag) updateConfig('tag_name', tag.name);
+            updateConfigMultiple({ tag_id: v, tag_name: tag?.name });
           }}>
             <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
             <SelectContent>{tags.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -78,8 +81,7 @@ export function NodeConfigPanel({ node, onUpdate, onDelete }: Props) {
           <label className="text-xs font-medium">Segmento</label>
           <Select value={config.segment_id || ''} onValueChange={v => {
             const seg = segments.find(s => s.id === v);
-            updateConfig('segment_id', v);
-            if (seg) updateConfig('segment_name', seg.name);
+            updateConfigMultiple({ segment_id: v, segment_name: seg?.name });
           }}>
             <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
             <SelectContent>{segments.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
@@ -131,8 +133,7 @@ export function NodeConfigPanel({ node, onUpdate, onDelete }: Props) {
           <label className="text-xs font-medium">Plantilla de email</label>
           <Select value={config.template_id || ''} onValueChange={v => {
             const tmpl = templates.find(t => t.id === v);
-            updateConfig('template_id', v);
-            if (tmpl) updateConfig('template_name', tmpl.name);
+            updateConfigMultiple({ template_id: v, template_name: tmpl?.name });
           }}>
             <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
             <SelectContent>{templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>

@@ -70,6 +70,25 @@ Deno.serve(async (req: Request) => {
     case "whatsapp_evolution": {
       // Evolution API v2 webhook format
       const data = body.data || body;
+      
+      // Formato alternativo de Evolution (con data.Info)
+      if (data.Info) {
+        const info = data.Info;
+        if (info.IsFromMe) break;
+        
+        let textContent = data.Text || data.text || data.Message?.conversation || data.message?.conversation || data.Message?.extendedTextMessage?.text || "[Media o formato no soportado]";
+        
+        messages.push({
+          sender_name: info.PushName || "Desconocido",
+          sender_identifier: info.Sender || info.Chat || "",
+          content: textContent,
+          media_type: info.Type === "image" ? "image" : info.Type === "video" ? "video" : info.Type === "audio" || info.Type === "ptt" ? "audio" : undefined,
+          external_id: info.ID || undefined,
+          metadata: body,
+        });
+        break;
+      }
+
       if (body.event === "messages.upsert" || data.key) {
         const msg = data.message || data;
         const key = data.key || {};
@@ -126,7 +145,18 @@ Deno.serve(async (req: Request) => {
   }
 
   if (messages.length === 0) {
-    return new Response(JSON.stringify({ ok: true, processed: 0 }), {
+    // Fallback: Si no pudimos parsearlo con la regla actual, guardamos el raw para poder verlo
+    await supabase.from("channel_messages").insert({
+      user_id: channel.user_id,
+      channel_id: channelId,
+      direction: "inbound",
+      sender_name: "Mensaje Desconocido (Debug)",
+      sender_identifier: "debug@evolution",
+      content: "Payload crudo: " + JSON.stringify(body, null, 2).slice(0, 1000),
+      metadata: body,
+    });
+
+    return new Response(JSON.stringify({ ok: true, processed: 0, debug: "inserted_raw" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

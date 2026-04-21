@@ -9,3 +9,8 @@ entrypoint = "./functions/test-trigger/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/test-trigger/*.html" ]
+[functions.channel-webhook]
+verify_jwt = false
+
+[functions.send-channel-message]
+verify_jwt = false
